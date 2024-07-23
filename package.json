@@ -1,7 +1,7 @@
 {
   "name": "homebridge-flume",
   "alias": "Flume",
-  "version": "3.0.3-beta.0",
+  "version": "3.0.3",
   "author": {
     "name": "Ben Potter",
     "email": "bwp91@icloud.com"

@@ -3,10 +3,13 @@
   "alias": "Flume",
   "version": "3.0.3",
   "author": {
-    "name": "Ben Potter",
-    "email": "bwp91@icloud.com"
+    "name": "mpatfield"
   },
   "description": "Homebridge plugin to integrate Flume devices into HomeKit.",
+  "homebridge": {
+    "platform": "HomebridgeFlume",
+    "name": "homebridge-flume"
+  },  
   "type": "module",
   "main": "lib/index.js",
   "keywords": [
@@ -16,46 +19,32 @@
     "hoobs",
     "hoobs-plugin",
     "homekit",
-    "siri",
     "flume",
-    "water sensor",
-    "water monitor",
+    "siri",
     "leak detector",
-    "water leak detector"
+    "water leak detector",
+    "water monitor",
+    "water sensor"
   ],
   "scripts": {
-    "lint": "eslint . --fix",
+    "lint": "eslint . --max-warnings=0",
     "rebuild": "rm -rf package-lock.json && rm -rf node_modules && npm install"
   },
   "engines": {
-    "homebridge": "^1.6.0 || 2.0.0",
-    "node": "^18.20.4 || ^20.15.1 || ^22.5.1"
+    "node": "^18.20.4 || ^20.18.0 || ^22.10.0",
+    "homebridge": "^1.8.0 || ^2.0.0-beta.0"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bwp91/homebridge-flume.git"
+    "url": "git+https://github.com/mpatfield/homebridge-flume.git"
   },
   "bugs": {
-    "url": "https://github.com/bwp91/homebridge-flume/issues"
+    "url": "https://github.com/mpatfield/homebridge-flume/issues"
   },
-  "funding": [
-    {
-      "type": "github",
-      "url": "https://github.com/sponsors/bwp91"
-    },
-    {
-      "type": "kofi",
-      "url": "https://ko-fi.com/bwp91"
-    },
-    {
-      "type": "patreon",
-      "url": "https://www.patreon.com/bwp91"
-    },
-    {
-      "type": "paypal",
-      "url": "https://www.paypal.me/BenPotter"
-    }
-  ],
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/mpatfield"
+  },
   "dependencies": {
     "@homebridge/plugin-ui-utils": "^1.0.3",
     "axios": "^1.7.2",
@@ -67,5 +56,6 @@
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-import-newlines": "^1.4.0",
     "eslint-plugin-sort-exports": "^0.9.1"
-  }
+  },
+  "license": "Apache-2.0"
 }

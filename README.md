@@ -1,54 +1,69 @@
 <p align="center">
-   <a href="https://github.com/bwp91/homebridge-flume"><img src="https://user-images.githubusercontent.com/43026681/143831753-ed67cad2-909a-4337-9b18-dd8e65dfdf5e.png" width="600px"></a>
+<img src="https://github.com/mpatfield/homebridge-flume/blob/latest/img/banner.png" width="600">
 </p>
+
 <span align="center">
 
 # homebridge-flume
 
-Homebridge plugin to integrate Flume devices into HomeKit
+Homebridge plugin to integrate Flume devices into Apple HomeKit
 
 [![verified-by-homebridge](https://badgen.net/badge/homebridge/verified/purple)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
-[![hoobs-certified](https://badgen.net/badge/HOOBS/certified/yellow)](https://plugins.hoobs.org/plugin/homebridge-thermobit)  
-[![npm](https://img.shields.io/npm/v/homebridge-flume/latest?label=latest)](https://www.npmjs.com/package/homebridge-flume)
-[![npm](https://img.shields.io/npm/v/homebridge-flume/beta?label=beta)](https://github.com/bwp91/homebridge-flume/wiki/Beta-Version)  
+[![hoobs-certified](https://badgen.net/badge/HOOBS/certified/yellow)](https://plugins.hoobs.org/plugin/homebridge-flume)  
 [![npm](https://img.shields.io/npm/dw/homebridge-flume)](https://www.npmjs.com/package/homebridge-flume)
-[![npm](https://img.shields.io/npm/dt/homebridge-flume)](https://www.npmjs.com/package/homebridge-flume)  
-[![Discord](https://img.shields.io/discord/784827113378676736?color=728ED5&logo=discord&label=bwp91-discord)](https://discord.com/channels/784827113378676736/784827113378676739)
-[![Discord](https://img.shields.io/discord/432663330281226270?color=728ED5&logo=discord&label=hb-discord)](https://discord.com/channels/432663330281226270/742733745743855627)
+[![npm](https://img.shields.io/npm/dt/homebridge-flume)](https://www.npmjs.com/package/homebridge-flume)
 
 </span>
 
-### Plugin Information
+## Disclaimer
 
-- This plugin allows you to view and control your Flume devices within HomeKit.
+This plugin is independently developed and is not in any way affiliated with or endorsed by Flume. Any issues or damage resulting from use of this plugin are not the fault of the developer. Use at your own risk.
 
-### Prerequisites
+## What does this plugin do?
 
-- To use this plugin, you will need to already have:
-  - [Homebridge](https://homebridge.io): v1.6 or [HOOBS](https://hoobs.org): v4.3 installed - refer to the links for more information and installation instructions.
-  - Node: latest version of v18, v20 or v22 - any other major version is not supported.
+Once you have configured the plugin (see below) you will see a new leak sensor pop up in your Home app. If the sensor detetcs a leak, you will receive a HomeKit notification and can setup automations to react to state changes.
 
-### Setup
+<img src="https://github.com/mpatfield/homebridge-flume/blob/latest/img/screenshot_1.png"><img src="https://github.com/mpatfield/homebridge-flume/blob/latest/img/screenshot_2.png">
 
-- [Installation](https://github.com/bwp91/homebridge-flume/wiki/Installation)
-- [Configuration](https://github.com/bwp91/homebridge-flume/wiki/Configuration)
-- [Beta Version](https://github.com/bwp91/homebridge-flume/wiki/Beta-Version)
-- [Node Version](https://github.com/bwp91/homebridge-flume/wiki/Node-Version)
+If you use a more advanced HomeKit app like the Eve app, you will see some additional information about your water use.
 
-### Help/About
+<img src="https://github.com/mpatfield/homebridge-flume/blob/latest/img/screenshot_3.png">
 
-- [Common Errors](https://github.com/bwp91/homebridge-flume/wiki/Common-Errors)
-- [Support Request](https://github.com/bwp91/homebridge-flume/issues/new/choose)
-- [Changelog](https://github.com/bwp91/homebridge-flume/blob/latest/CHANGELOG.md)
-- [About Me](https://github.com/sponsors/bwp91)
+Unfortunately, this is all the plugin is able to do. This is due to limitations in what HomeKit offers.
 
-### Credits
+## Configuration
 
-- This is a forked rewrite of the [homebridge-flume-water-sensor](https://www.npmjs.com/package/homebridge-flume-water-sensor) plugin by @weallknowwhoisatfaulthere.
-- To the creator of the awesome plugin header logo: [Keryan Belahcene](https://www.instagram.com/keryan.me).
-- To the creators/contributors of [Homebridge](https://homebridge.io) who make this plugin possible.
+You'll need to get your API Access Client ID and Client Secret from the [Flume portal](https://portal.flumetech.com).
 
-### Disclaimer
+[This guide](https://flumetech.readme.io/reference/accessing-the-api) provides step-by-step instructions.
 
-- I am in no way affiliated with Flume and this plugin is a personal project that I maintain in my free time.
-- Use this plugin entirely at your own risk - please see licence for more information.
+Using the Homebridge Config UI is the easiest way to set up this plugin. However, if you wish to do things manually then you will need to add the following to your Homebridge `config.json`:
+
+```json
+{
+  "name": "Flume",
+  "platform": "Flume",
+  "username": "[username]",
+  "password": "[password]",
+  "clientId": "1234567890ABCD",
+  "clientSecret": "1234567890ABCDEFGHIJ",
+  "refreshInterval": 1,
+  "disableDeviceLogging": false,
+}
+```
+
+- `username` - (Required) Flume username
+- `password` - (Required) Flume password
+- `clientId`/`clientSecret` - (Required) Flume Client ID, found at [https://portal.flumetech.com](https://portal.flumetech.com)
+- `refreshInterval` - (Optional) number of minutes between updates; must be `1` or more
+- `disableDeviceLogging` - (Optional) if true then accessory status changes will not be logged
+
+## Credits
+
+@weallknowwhoisatfaulthere for earlier work done [homebridge-flume-water-sensor](https://www.npmjs.com/package/homebridge-flume-water-sensor)
+
+[@bwp91](https://github.com/sponsors/bwp91) for creating and maintaining this plugin for years despite not even owning a Flume device
+
+[Keryan Belahcene](https://www.instagram.com/keryan.me) for creating the [Flume](https://github.com/homebridge-plugins/homebridge-flume) header logo
+
+And to the amazing creators/contributors of [Homebridge](https://homebridge.io) who made this plugin possible!

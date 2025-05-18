@@ -21,9 +21,9 @@ This plugin is independently developed and is not in any way affiliated with or 
 
 ## What does this plugin do?
 
-Once you have configured the plugin (see below) you will see a new leak sensor pop up in your Home app. If the sensor detetcs a leak, you will receive a HomeKit notification and can setup automations to react to state changes.
+Once you have completed [Configuration](https://github.com/mpatfield/homebridge-flume#configuration) you will see a new leak sensor pop up in your Home app. If the sensor detetcs a leak, you will receive a HomeKit notification and can setup automations to react to state changes.
 
-<img src="https://github.com/mpatfield/homebridge-flume/blob/latest/img/screenshot_1.png"><img src="https://github.com/mpatfield/homebridge-flume/blob/latest/img/screenshot_2.png">
+<img src="https://github.com/mpatfield/homebridge-flume/blob/latest/img/screenshot_1.png"> <img src="https://github.com/mpatfield/homebridge-flume/blob/latest/img/screenshot_2.png">
 
 If you use a more advanced HomeKit app like the Eve app, you will see some additional information about your water use.
 

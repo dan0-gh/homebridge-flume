@@ -4,7 +4,7 @@
   "singular": true,
   "customUi": true,
   "customUiPath": "./lib/homebridge-ui",
-  "headerDisplay": "<p align=\"center\"><img width=\"60%\" src=\"https://user-images.githubusercontent.com/43026681/143831753-ed67cad2-909a-4337-9b18-dd8e65dfdf5e.png\"></p><p align=\"center\">For help and support please visit our <a href=\"https://github.com/bwp91/homebridge-thermobit/wiki\">GitHub Wiki</a>. We hope you find this plugin useful!</p>",
+  "headerDisplay": "<p align=\"center\"><img width=\"60%\" src=\"https://github.com/mpatfield/homebridge-flume/blob/latest/img/banner.png\"></p><p align=\"center\">For help and support please visit <a href=\"https://github.com/mpatfield/homebridge-flume/\">GitHub</a>. We hope you find this plugin useful!</p>",
   "schema": {
     "type": "object",
     "properties": {
@@ -29,15 +29,14 @@
         "title": "Client ID",
         "type": "string",
         "placeholder": "1234567890ABCD",
-        "required": true,
-        "description": "Your Flume Client ID, found at https://portal.flumetech.com."
+        "required": true
       },
       "clientSecret": {
         "title": "Client Secret",
         "type": "string",
         "placeholder": "1234567890ABCDEFGHIJ",
         "required": true,
-        "description": "Your Flume Client Secret, found at https://portal.flumetech.com."
+        "description": "Your Flume Client ID and Client Secret can be found at https://portal.flumetech.com."
       },
       "disableDeviceLogging": {
         "type": "boolean",

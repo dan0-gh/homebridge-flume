@@ -1,7 +1,7 @@
 {
   "name": "homebridge-flume",
   "alias": "Flume",
-  "version": "3.0.3",
+  "version": "3.0.4-beta",
   "author": {
     "name": "mpatfield"
   },
@@ -11,7 +11,7 @@
     "name": "homebridge-flume"
   },
   "type": "module",
-  "main": "dist/index.js",
+  "main": "lib/index.js",
   "keywords": [
     "homebridge",
     "homebridge-plugin",
@@ -33,8 +33,8 @@
     "rebuild": "rm -rf package-lock.json && rm -rf node_modules && npm install"
   },
   "engines": {
-    "node": "^18.20.4 || ^20.18.0 || ^22.10.0",
-    "homebridge": "^1.8.0 || ^2.0.0-beta.0"
+    "homebridge": "^1.8.0 || ^2.0.0-beta.0",
+    "node": "^18.20.4 || ^20.15.1 || ^22"
   },
   "repository": {
     "type": "git",
@@ -50,6 +50,7 @@
   "dependencies": {
     "@homebridge/plugin-ui-utils": "^2.0.2",
     "axios": "^1.7.2",
+    "homebridge": "^2.0.0-beta.0",
     "jwt-decode": "^4.0.0"
   },
   "devDependencies": {

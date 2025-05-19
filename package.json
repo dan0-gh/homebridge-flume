@@ -6,6 +6,7 @@
     "name": "mpatfield"
   },
   "description": "Homebridge plugin to integrate Flume devices into HomeKit.",
+  "homepage": "https://github.com/mpatfield/homebridge-flume#readme",
   "homebridge": {
     "platform": "HomebridgeFlume",
     "name": "homebridge-flume"

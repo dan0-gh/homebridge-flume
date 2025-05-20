@@ -1,7 +1,20 @@
-export default {
+const langEn = {
+  
+  // General
+  brand: 'Flume',
+
+  // Startup
+  initializing: 'Initializing plugin',
+  initialized: 'Plugin initialized. Setting up accessories...',
+
+  // Custom Char
+  customCharTodayUsage: 'Today Usage',
+  customCharMonthUsage: 'Month Usage',
+  customCharPreviousMonth: 'Previous Month',
+  customCharUnits: 'Gallons',
+
   accNotFound: 'accessory not found',
   beta: 'You are using a beta version of the plugin - you will experience more logging than normal',
-  brand: 'Flume',
   cfgDef: 'is not a valid number so using default of',
   cfgDup: 'will be ignored since another entry with this ID already exists',
   cfgIgn: 'is not configured correctly so ignoring',
@@ -12,10 +25,10 @@ export default {
   cfgQts: 'should not have quotes around its entry',
   complete: '✓ Setup complete',
   devAdd: 'has been added to Homebridge',
-  devInit: 'initialised with id',
+  devInit: 'initialized with id',
   devNotAdd: 'could not be added to Homebridge as',
   devNotConf: 'could not be configured as',
-  devNotInit: 'could not be initialised as',
+  devNotInit: 'could not be initialized as',
   devNotRef: 'could not be refreshed as',
   devNotRemove: 'could not be removed from Homebridge as',
   devNotUpdated: 'could not be updated as',
@@ -23,8 +36,6 @@ export default {
   disabling: 'Disabling plugin',
   hbVersionFail: 'Your version of Homebridge is too low - please update to v1.6',
   httpRetry: 'Unable to reach Flume, retrying in 30 seconds',
-  initialised: 'Plugin initialised. Setting up accessories...',
-  initialising: 'Initialising plugin',
   noCreds: 'Flume username and/or password and/or client id/secret not configured',
   noDataReceived: 'No data received from request',
   noDevices: 'No devices were found in your account',
@@ -41,3 +52,5 @@ export default {
     'Want to see this plugin in your own language? Let me know!',
   ],
 };
+
+export default langEn;

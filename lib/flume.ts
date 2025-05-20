@@ -1,21 +1,79 @@
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
+import { Logger } from 'homebridge';
+import langEn from './lang/en.js';
 import { jwtDecode } from 'jwt-decode';
-import platformConsts from '../utils/constants.js';
-import { sleep } from '../utils/functions.js';
-import platformLang from '../utils/lang-en.js';
+import { HTTP_RETRY_CODES, SECOND } from './constants.js';
 
-export default class {
-  constructor(platform) {
-    // Create variables usable by the class
-    this.log = platform.log;
-    this.username = platform.config.username;
-    this.password = platform.config.password;
-    this.clientId = platform.config.clientId;
-    this.clientSecret = platform.config.clientSecret;
+type TokenData = {
+  token_type: string;
+  access_token: string;
+  expires_in: number;
+  refresh_token: string;
+};
+
+type TokenResponse = {
+  data: TokenData[];
+};
+
+type JwtPayload = {
+  user_id: string;
+  type: string;
+  scope: string[];
+  iat: number;
+  exp: number;
+  iss: string;
+  sub: string;
+};
+
+export type WaterUsage = {
+  today: [{value: number}];
+  month: [{value: number}];
+  prevMonth: [{value: number}];
+}
+
+export type WaterUsageResponse = {
+  data: WaterUsage;
+}
+
+export type LeakInfo = {
+  active: boolean;
+}
+
+export type Device = {
+  id: string;
+  bridge_id: string;
+  product: string;
+  battery_level: string;
+  connected: boolean;
+};
+
+type DeviceResponse = {
+  data: Device[];
+};
+
+type LeakInfoResponse = {
+  data: LeakInfo;
+}
+
+export class FlumeAPI {
+  private accessToken?: string;
+  private refreshToken?: string;
+  private expiresIn?: number;
+  private userId?: string;
+
+  constructor(
+    private readonly log: Logger,
+    private readonly username: string,
+    private readonly password: string,
+    private readonly clientId: string,
+    private readonly clientSecret: string,
+    private readonly isBeta: boolean,
+  ) {
   }
 
-  async obtainToken() {
+  async obtainToken(): Promise<boolean> {
     try {
+
       // Generate the JSON data to send
       const body = {
         grant_type: 'password',
@@ -24,16 +82,17 @@ export default class {
         username: this.username,
         password: this.password,
       };
+      
       const now = Date.now();
 
       // Perform the HTTP request
-      const res = await axios.post('https://api.flumetech.com/oauth/token', body, {
-        timeout: 10000,
+      const res: AxiosResponse<TokenResponse> = await axios.post('https://api.flumetech.com/oauth/token', body, {
+        timeout: 10 * SECOND,
       });
 
       // Check to see we got a response
       if (!res.data) {
-        throw new Error(platformLang.noDataReceived);
+        throw new Error(langEn.noDataReceived);
       }
 
       /*
@@ -60,7 +119,7 @@ export default class {
       // Check to see we got a proper response
       if (!res.data.data || !res.data.data[0]) {
         this.log.warn('[HTTP obtainToken()] %s.', JSON.stringify(res.data));
-        throw new Error(platformLang.noDataReceived);
+        throw new Error(langEn.noDataReceived);
       }
 
       // Make the token available in other functions
@@ -69,13 +128,13 @@ export default class {
       this.expiresIn = now + res.data.data[0].expires_in;
 
       // Log the response if in debug mode
-      this.log.debug(
+      this.logIfBeta(
         '[HTTP obtainToken()] %s.',
         JSON.stringify(res.data).replaceAll(this.accessToken, '[redacted]').replaceAll(this.refreshToken, '[redacted]'),
       );
 
       // Obtain the user ID
-      this.userId = jwtDecode(this.accessToken).user_id;
+      this.userId = (jwtDecode(this.accessToken) as JwtPayload).user_id;
 
       /*
         {
@@ -89,22 +148,23 @@ export default class {
         }
       */
       return true;
-    } catch (err) {
-      if (err.code && platformConsts.httpRetryCodes.includes(err.code)) {
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string };
+      if (error.code && HTTP_RETRY_CODES.includes(error.code)) {
         // Retry if another attempt could be successful
-        this.log.warn('[HTTP obtainToken()] %s [%s].', platformLang.httpRetry, err.code);
-        await sleep(30000);
+        this.log.warn('[HTTP obtainToken()] %s [%s].', langEn.httpRetry, error.code);
+        await this.sleep(30 * SECOND);
         return this.obtainToken();
       }
-      throw new Error(`[HTTP obtainToken()] ${err.message}`);
+      throw new Error(`[HTTP obtainToken()] ${error.message}`);
     }
   }
 
-  async renewToken() {
+  async renewToken(): Promise<boolean> {
     try {
       // Check we have a refresh token
       if (!this.refreshToken) {
-        throw new Error(platformLang.noRefreshToken);
+        throw new Error(langEn.noRefreshToken);
       }
 
       // Generate the JSON data to send
@@ -117,13 +177,13 @@ export default class {
       const now = Date.now();
 
       // Perform the HTTP request
-      const res = await axios.post('https://api.flumetech.com/oauth/token', body, {
-        timeout: 10000,
+      const res: AxiosResponse<TokenResponse> = await axios.post('https://api.flumetech.com/oauth/token', body, {
+        timeout: 10 * SECOND,
       });
 
       // Check to see we got a response
       if (!res.data) {
-        throw new Error(platformLang.noDataReceived);
+        throw new Error(langEn.noDataReceived);
       }
 
       // Make the token available in other functions
@@ -133,7 +193,7 @@ export default class {
 
       // Log the response if in debug mode
       // Redact the access token and refresh token
-      this.log.debug(
+      this.logIfBeta(
         '[HTTP renewToken()] %s.',
         JSON.stringify(res.data).replaceAll(this.accessToken, '[redacted]').replaceAll(this.refreshToken, '[redacted]'),
       );
@@ -159,58 +219,61 @@ export default class {
           }
         */
       return true;
-    } catch (err) {
-      if (err.code && platformConsts.httpRetryCodes.includes(err.code)) {
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string };
+      if (error.code && HTTP_RETRY_CODES.includes(error.code)) {
         // Retry if another attempt could be successful
-        this.log.warn('[HTTP renewToken()] %s [%s].', platformLang.httpRetry, err.code);
-        await sleep(30000);
+        this.log.warn('[HTTP renewToken()] %s [%s].', langEn.httpRetry, error.code);
+        await this.sleep(30 * SECOND);
         return this.renewToken();
       }
-      throw new Error(`[HTTP renewToken()] ${err.message}`);
+      throw new Error(`[HTTP renewToken()] ${error.message}`);
     }
   }
 
-  async getDevices() {
+  async getDevices(): Promise<Device[]> {
     try {
       // Check we have a user id
       if (!this.userId || !this.accessToken) {
-        throw new Error(platformLang.noUserId);
+        throw new Error(langEn.noUserId);
       }
 
       // Perform the HTTP request
-      const res = await axios.get(`https://api.flumetech.com/users/${this.userId}/devices?list_shared=true`, {
-        headers: { Authorization: `Bearer ${this.accessToken}` },
-        timeout: 10000,
-      });
+      const res: AxiosResponse<DeviceResponse> = await axios.get(
+        `https://api.flumetech.com/users/${this.userId}/devices?list_shared=true`,
+        {
+          headers: { Authorization: `Bearer ${this.accessToken}` },
+          timeout: 10 * SECOND,
+        },
+      );
 
       // Check to see we got a response
       if (!res.data) {
-        throw new Error(platformLang.noDataReceived);
+        throw new Error(langEn.noDataReceived);
       }
 
       // Log the response if in debug mode
-      this.log.debug('[HTTP getDevices()] %s.', JSON.stringify(res.data));
+      this.logIfBeta('[HTTP getDevices()] %s.', JSON.stringify(res.data));
 
       return res.data.data;
-    } catch (err) {
-      if (err.code && platformConsts.httpRetryCodes.includes(err.code)) {
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string };
+      if (error.code && HTTP_RETRY_CODES.includes(error.code)) {
         // Retry if another attempt could be successful
-        this.log.warn('[HTTP getDevices()] %s [%s].', platformLang.httpRetry, err.code);
-        await sleep(30000);
+        this.log.warn('[HTTP getDevices()] %s [%s].', langEn.httpRetry, error.code);
+        await this.sleep(30 * SECOND);
         return this.getDevices();
       }
-      throw new Error(`[HTTP getDevices()] ${err.message}`);
+      throw new Error(`[HTTP getDevices()] ${error.message}`);
     }
   }
 
-  async getDeviceInfo(deviceId) {
+  async getDeviceInfo(deviceId: string): Promise<Device> {
     // Refresh the access token if it has expired already
-    if (Date.now() > this.expiresIn) {
+    if (Date.now() > (this.expiresIn ?? 0)) {
       await this.renewToken();
     }
-
-    // Send the request
-    const res = await axios.get(
+    const res: AxiosResponse<DeviceResponse> = await axios.get(
       `https://api.flumetech.com/users/${this.userId}/devices/${deviceId}`,
       {
         headers: {
@@ -218,22 +281,16 @@ export default class {
         },
       },
     );
-
-    // Check to see we got a response
     if (!res.data) {
-      throw new Error(platformLang.noDataReceived);
+      throw new Error(langEn.noDataReceived);
     }
-
-    // Log the response if in debug mode
-    this.log.debug('[HTTP getDeviceInfo()] %s.', JSON.stringify(res.data));
-
-    // Parse the response
+    this.logIfBeta('[HTTP getDeviceInfo()] %s.', JSON.stringify(res.data));
     return res.data.data[0];
   }
 
-  async getWaterInfo(deviceId) {
+  async getWaterUsage(deviceId: string): Promise<WaterUsage> {
     // Refresh the access token if it has expired already
-    if (Date.now() > this.expiresIn) {
+    if (Date.now() > (this.expiresIn ?? 0)) {
       await this.renewToken();
     }
 
@@ -278,7 +335,7 @@ export default class {
     };
 
     // Send the request
-    const res = await axios.post(
+    const res: AxiosResponse<WaterUsageResponse> = await axios.post(
       `https://api.flumetech.com/users/${this.userId}/devices/${deviceId}/query`,
       body,
       {
@@ -290,24 +347,22 @@ export default class {
 
     // Check to see we got a response
     if (!res.data) {
-      throw new Error(platformLang.noDataReceived);
+      throw new Error(langEn.noDataReceived);
     }
 
     // Log the response if in debug mode
-    this.log.debug('[HTTP getWaterInfo()] %s.', JSON.stringify(res.data));
+    this.logIfBeta('[HTTP getWaterUsage()] %s.', JSON.stringify(res.data));
 
     // Parse the response
-    return res.data.data[0];
+    return res.data.data;
   }
 
-  async getLeakInfo(deviceId) {
+  async getLeakInfo(deviceId: string): Promise<LeakInfo> {
     // Refresh the access token if it has expired already
-    if (Date.now() > this.expiresIn) {
+    if (Date.now() > (this.expiresIn ?? 0)) {
       await this.renewToken();
     }
-
-    // Send the request
-    const res = await axios.get(
+    const res: AxiosResponse<LeakInfoResponse> = await axios.get(
       `https://api.flumetech.com/users/${this.userId}/devices/${deviceId}/leaks/active`,
       {
         headers: {
@@ -315,16 +370,24 @@ export default class {
         },
       },
     );
-
-    // Check to see we got a response
     if (!res.data) {
-      throw new Error(platformLang.noDataReceived);
+      throw new Error(langEn.noDataReceived);
     }
+    this.logIfBeta('[HTTP getLeakInfo()] %s.', JSON.stringify(res.data));
+    return res.data.data;
+  }
 
-    // Log the response if in debug mode
-    this.log.debug('[HTTP getLeakInfo()] %s.', JSON.stringify(res.data));
+  sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
 
-    // Parse the response
-    return res.data.data[0];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private logIfBeta(message: string, ...parameters: any[]) {
+    if (!this.isBeta) {
+      return;
+    }
+    this.log.info(message, parameters);
   }
 }

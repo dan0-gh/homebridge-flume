@@ -1,108 +1,134 @@
-import { Characteristic, Formats, HAP, Perms, PlatformAccessory, Service } from 'homebridge';
+import { Characteristic, Formats, HAP, LogLevel, Perms, PlatformAccessory, Service } from 'homebridge';
 import { FlumePlatform } from './platform.js';
 import strings from './lang/en.js';
-import { DeviceUpdate } from './model/types.js';
+import { Device } from './model/device.js';
 
 class CustomCharacteristic {
-  constructor(readonly name: string, readonly uuid: string) {
+  constructor(readonly uuid: string, readonly name: string) {
   }
 }
 
-const TODAY_USAGE = new CustomCharacteristic(strings.customCharTodayUsage, 'E966F001-079E-48FF-8F27-9C2605A29F52');
-const MONTH_USAGE = new CustomCharacteristic(strings.customCharMonthUsage, 'E966F002-079E-48FF-8F27-9C2605A29F52');
-const PREV_MONTH_USAGE = new CustomCharacteristic(strings.customCharPreviousMonth, 'E966F003-079E-48FF-8F27-9C2605A29F52');
+const TODAY_USAGE = new CustomCharacteristic('f25cc272-83cb-46a7-915a-259fa17364ed', strings.customCharTodayUsage);
+const MONTH_USAGE = new CustomCharacteristic('580e224d-edf2-4c23-af79-cdbebfc509c5', strings.customCharMonthUsage);
+const LAST_MONTH_USAGE = new CustomCharacteristic('69129d54-bdb8-46a1-a93b-f7e8d16d32a8', strings.customCharLastMonth);
 
 export class FlumeAccessory {
   private readonly HAP: HAP;
   private readonly Characteristic: typeof Characteristic;
+  private readonly Service: typeof Service;
 
   private readonly leakService: Service;
 
-  private cacheLeak: boolean;
-  private cacheBatt: boolean;
-  private cacheStatus: boolean;
+  private isLeakDetected: boolean = false;
+  private isBatteryLow: boolean = false;
+  private isDisconnected: boolean = true;
+
+  private readonly charLeakDetected: typeof Characteristic.LeakDetected;
+  private readonly charStatusLowBattery: typeof Characteristic.StatusLowBattery;
+  private readonly charStatusFault: typeof Characteristic.StatusFault;
 
   private readonly todayUsageChar: Characteristic;
   private readonly monthUsageChar: Characteristic;
-  private readonly prevMonthUsageChar: Characteristic;
+  private readonly lastMonthUsageChar: Characteristic;
 
   constructor(
     readonly platform: FlumePlatform, 
     readonly accessory: PlatformAccessory,
+    readonly device: Device,
   ) {
+
     this.HAP = platform.api.hap;
     this.Characteristic = this.HAP.Characteristic;
+    this.Service = this.HAP.Service;
+
+    accessory.getService(this.Service.AccessoryInformation)!
+      .setCharacteristic(this.Characteristic.Name, strings.brand)
+      .setCharacteristic(this.Characteristic.ConfiguredName, strings.brand)
+      .setCharacteristic(this.Characteristic.Manufacturer, strings.brand)
+      .setCharacteristic(this.Characteristic.SerialNumber, device.id)
+      .setCharacteristic(this.Characteristic.Model, device.productName)
+      .setCharacteristic(this.Characteristic.Identify, true)
+      .setCharacteristic(this.Characteristic.FirmwareRevision, platform.packageVersion);
+
+    this.charLeakDetected = this.Characteristic.LeakDetected;
+    this.charStatusLowBattery = this.Characteristic.StatusLowBattery;
+    this.charStatusFault = this.Characteristic.StatusFault;
 
     this.leakService = this.accessory.getService(this.HAP.Service.LeakSensor)
       || this.accessory.addService(this.HAP.Service.LeakSensor);
 
-    this.cacheLeak = !!this.leakService.getCharacteristic(this.Characteristic.LeakDetected).value;
-    this.cacheBatt = !this.leakService.getCharacteristic(this.Characteristic.StatusLowBattery).value;
-    this.cacheStatus = !this.leakService.getCharacteristic(this.Characteristic.StatusFault).value;
+    this.isLeakDetected = this.leakService.getCharacteristic(this.charLeakDetected).value === this.charLeakDetected.LEAK_DETECTED;
+    this.isBatteryLow = this.leakService.getCharacteristic(this.charStatusLowBattery).value === this.charStatusLowBattery.BATTERY_LEVEL_LOW;
+    this.isDisconnected = this.leakService.getCharacteristic(this.charStatusFault).value === this.charStatusFault.GENERAL_FAULT;
 
     this.todayUsageChar = this.attachCustomCharacteristic(TODAY_USAGE);
     this.monthUsageChar = this.attachCustomCharacteristic(MONTH_USAGE);
-    this.prevMonthUsageChar = this.attachCustomCharacteristic(PREV_MONTH_USAGE);
+    this.lastMonthUsageChar = this.attachCustomCharacteristic(LAST_MONTH_USAGE);
+
+    device.setOnUpdateCallback(this.handleUpdate.bind(this));
+
+    this.updateCharacteristics();
   }
 
-  externalUpdate(update: DeviceUpdate): void {
+  private handleUpdate(id: string): void {
+    if (id === this.device.id) {
+      this.updateCharacteristics();
+    }
+  }
 
-    // Check the data for leak detection
-    if (update.leakInfo && this.hasProperty(update.leakInfo, 'active') && update.leakInfo.active !== this.cacheLeak) {
-      this.cacheLeak = update.leakInfo.active ?? false;
-      this.leakService.updateCharacteristic(this.Characteristic.LeakDetected, this.cacheLeak ? 1 : 0);
-      this.log(`current leak status [${this.cacheLeak ? '' : 'not '}detected]`);
+  private updateCharacteristics(): void {
+
+    if (this.device.isLeakDetected !== this.isLeakDetected) {
+      this.isLeakDetected = this.device.isLeakDetected;
+      const value = this.isLeakDetected ? this.charLeakDetected.LEAK_DETECTED : this.charLeakDetected.LEAK_NOT_DETECTED;
+      this.leakService.updateCharacteristic(this.charLeakDetected, value);
+      this.logState(this.isLeakDetected ? LogLevel.ERROR : LogLevel.INFO, this.isLeakDetected ? strings.leakDetected : strings.leakNotDetected);
     }
 
-    // Check the data for battery level, cacheBatt is true for OK and false for LOW
-    if (update.device && this.hasProperty(update.device, 'battery_level') && (update.device.battery_level !== 'low') !== this.cacheBatt) {
-      this.cacheBatt = update.device.battery_level !== 'low';
-      this.leakService.updateCharacteristic(this.Characteristic.StatusLowBattery, this.cacheBatt ? 0 : 1);
-      this.log(`current battery [${this.cacheBatt ? 'okay' : 'low'}]`);
+    if (this.device.isBatteryLow !== this.isBatteryLow) {
+      this.isBatteryLow = this.device.isBatteryLow;
+      const value  = this.isBatteryLow ? this.charStatusLowBattery.BATTERY_LEVEL_LOW : this.charStatusLowBattery.BATTERY_LEVEL_NORMAL;
+      this.leakService.updateCharacteristic(this.charStatusLowBattery, value);
+      this.logState(this.isBatteryLow ? LogLevel.WARN : LogLevel.INFO, this.isBatteryLow ? strings.batteryLow : strings.batteryNormal);
     }
 
-    // Check the data for connectivity, cacheStatus is true for OK and false for NOT CONNECTED
-    if (update.device && this.hasProperty(update.device, 'connected') && update.device.connected !== this.cacheStatus) {
-      this.cacheStatus = update.device.connected ?? false;
-      this.leakService.updateCharacteristic(this.Characteristic.StatusFault, this.cacheStatus ? 0 : 1);
-      this.log(`current status [${this.cacheStatus ? '' : 'not '}connected]`);
+    if (this.device.isDisconnected !== this.isDisconnected) {
+      this.isDisconnected = this.device.isDisconnected;
+      const value = this.isDisconnected ? this.charStatusFault.GENERAL_FAULT : this.charStatusFault.NO_FAULT;
+      this.leakService.updateCharacteristic(this.charStatusFault, value);
+      this.logState(this.isDisconnected ? LogLevel.WARN : LogLevel.INFO, this.isDisconnected ? strings.connectionFault : strings.connectionNormal);
     }
 
-    // Water info
-    if (update.waterUsage) {
-      if (update.waterUsage.today && update.waterUsage.today[0] && this.hasProperty(update.waterUsage.today[0], 'value')) {
-        this.todayUsageChar.updateValue(update.waterUsage.today[0].value);
-      }
-      if (update.waterUsage.month && update.waterUsage.month[0] && this.hasProperty(update.waterUsage.month[0], 'value')) {
-        this.monthUsageChar.updateValue(update.waterUsage.month[0].value);
-      }
-      if (update.waterUsage.prevMonth && update.waterUsage.prevMonth[0] && this.hasProperty(update.waterUsage.prevMonth[0], 'value')) {
-        this.prevMonthUsageChar.updateValue(update.waterUsage.prevMonth[0].value);
-      }
-    }
+    this.todayUsageChar.updateValue(this.device.usageToday);
+    this.monthUsageChar.updateValue(this.device.usageMonth);
+    this.lastMonthUsageChar.updateValue(this.device.usageLastMonth);
   }
 
   private attachCustomCharacteristic(char: CustomCharacteristic): Characteristic {
     let result: Characteristic;
 
     if (this.leakService.testCharacteristic(char.name)) {
-      result = this.leakService.getCharacteristic(char.name)!; // Already tested it exists
+      result = this.leakService.getCharacteristic(char.name)!;
     } else {
-      result = this.leakService.addCharacteristic(new this.Characteristic(char.name, char.uuid, {
-        format: Formats.UINT32,
-        perms: [ Perms.PAIRED_READ, Perms.NOTIFY ],
-        unit: strings.customCharUnits,
-      }));
+
+      const customCharacteristic = class TodayUsage extends this.Characteristic {
+        constructor() {
+          super(char.name, char.uuid, {
+            format: Formats.UINT32,
+            perms: [ Perms.PAIRED_READ, Perms.NOTIFY ],
+            unit: strings.customCharUnits,
+          });
+          this.value = this.getDefaultValue();
+        }
+      };
+      result = this.leakService.addCharacteristic(customCharacteristic);
+      result.UUID = char.uuid;
     }
 
     return result;
   }
 
-  private hasProperty(obj: object, prop: PropertyKey): boolean {
-    return Object.prototype.hasOwnProperty.call(obj, prop);
-  }
-
-  private log(msg: string) {
-    this.platform.log.info('[%s] %s.', this.accessory.displayName, msg);
+  private logState(level: LogLevel, message: string) {
+    this.platform.log.log(level, '[%s] %s', this.device.id, message);
   }
 }

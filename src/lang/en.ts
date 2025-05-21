@@ -2,12 +2,15 @@ const langEn = {
   
   // General
   brand: 'Flume',
+  redacted: 'redacted',
 
   // Startup
   beta: 'This is a beta version of Flume. You will experience more logging than normal.',
   complete: '✓ Setup complete',
   initializing: 'Initializing plugin…',
-  initialized: 'Plugin initialized. Setting up accessories…',
+  newDevice: 'Adding new device:',
+  removeDevice: 'Removing device:',
+  restoringDevice: 'Restoring device:',
   welcomeMessages: [
     'Please ★ this plugin on GitHub if you\'re finding it useful! https://github.com/mpatfield/homebridge-flume',
     'Would you like to sponsor this plugin? https://github.com/sponsors/mpatfield',
@@ -17,34 +20,24 @@ const langEn = {
 
   // Errors
   badConfig: 'One or more required variables are missing from the config. Please check the documentation. https://github.com/mpatfield/homebridge-flume',
-  missingDevice: 'Device is missing after sync',
+  noDataReceived: 'No data received from http request',
   noDevices: 'No devices were found in your account',
+  noRefreshToken: 'No refresh token has been retrieved. Performing full auth instead…',
+  httpRetry: 'Request failed. Retrying in %s seconds…',
+
+  // Status
+  batteryLow: 'Battery is low',
+  batteryNormal: 'Battery is normal',
+  connectionFault: 'No connection detected',
+  connectionNormal: 'Connection restored',
+  leakDetected: 'Leak detected!',
+  leakNotDetected: 'No leaks detected',
 
   // Custom Characteristic
   customCharMonthUsage: 'Month Usage',
-  customCharPreviousMonth: 'Previous Month',
+  customCharLastMonth: 'Last Month',
   customCharTodayUsage: 'Today Usage',
   customCharUnits: 'Gallons',
-
-  // To Organize
-  accNotFound: 'accessory not found',
-  devAdd: 'has been added to Homebridge',
-  devInit: 'initialized with id',
-  devNotAdd: 'could not be added to Homebridge as',
-  devNotConf: 'could not be configured as',
-  devNotInit: 'could not be initialized as',
-  devNotRef: 'could not be refreshed as',
-  devNotRemove: 'could not be removed from Homebridge as',
-  devNotUpdated: 'could not be updated as',
-  devRemove: 'has been removed from Homebridge',
-  hbVersionFail: 'Your version of Homebridge is too low - please update to v1.6',
-  httpRetry: 'Unable to reach Flume, retrying in 30 seconds',
-  noDataReceived: 'No data received from request',
-  noRefreshToken: 'No refresh token has been retrieved',
-  noUserId: 'No user id has been retrieved',
-  pluginNotConf: 'Plugin has not been configured',
-  syncFailed: 'Sync process failed as',
-  updateFail: 'could not be updated as',
 };
 
 export default langEn;

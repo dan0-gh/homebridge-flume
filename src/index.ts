@@ -1,11 +1,12 @@
 import type { API } from 'homebridge';
 
 import { FlumePlatform } from './platform.js';
-import { PLATFORM_NAME } from './settings.js';
+
+export const PLATFORM_ALIAS = 'Flume';
 
 /**
  * This method registers the platform with Homebridge
  */
 export default (api: API) => {
-  api.registerPlatform(PLATFORM_NAME, FlumePlatform);
+  api.registerPlatform(PLATFORM_ALIAS, FlumePlatform);
 };

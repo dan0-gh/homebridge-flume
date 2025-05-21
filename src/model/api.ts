@@ -1,63 +1,39 @@
-import axios, { AxiosResponse } from 'axios';
+import axios, { AxiosResponse, AxiosRequestConfig } from 'axios';
 import { jwtDecode } from 'jwt-decode';
-import { Logger } from 'homebridge';
+import { Logger, LogLevel } from 'homebridge';
+
+import { Auth } from './auth.js';
+import { Device } from './device.js';
+import * as Types from './types.js';
 
 import { MINUTE, SECOND } from '../utils.js';
-import { Device, DeviceUpdate, LeakInfo, WaterUsage } from './types.js';
 import strings from '../lang/en.js';
+import { FlumeResponse } from './types.js';
+
+const URL_AUTH = 'https://api.flumetech.com/oauth/token';
+const URL_GET_DEVICES = 'https://api.flumetech.com/users/%s/devices?list_shared=true';
+const URL_GET_DEVICE = 'https://api.flumetech.com/users/%s/devices/%s';
+const URL_WATER_USAGE = 'https://api.flumetech.com/users/%s/devices/%s/query';
+const URL_LEAK_INFO = 'https://api.flumetech.com/users/%s/devices/%s/leaks/active';
+
+const HTTP_TIMEOUT = 10 * SECOND;
 
 const HTTP_RETRY_CODES = ['ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'ECONNABORTED'];
 
 const FULL_REFRESH_INTERVAL = 15 * MINUTE;
 
-type TokenData = {
-  token_type: string;
-  access_token: string;
-  expires_in: number;
-  refresh_token: string;
-};
-
-type TokenResponse = {
-  data: TokenData[];
-};
-
-type JwtPayload = {
-  user_id: string;
-  type: string;
-  scope: string[];
-  iat: number;
-  exp: number;
-  iss: string;
-  sub: string;
-};
-
-type DeviceResponse = {
-  data: Device[];
-};
-
-type WaterUsageResponse = {
-  data: WaterUsage;
-}
-
-type LeakInfoResponse = {
-  data: LeakInfo;
-}
+const RETRY_INTERVAL = 30 * SECOND;
 
 export class FlumeAPI {
-  private accessToken?: string;
-  private refreshToken?: string;
-  private expiresIn?: number;
+  private auth?: Auth;
   private userId?: string;
 
   private readonly _devices: Map<string, Device> = new Map();
-  private readonly _waterUsage: Map<string, WaterUsage> = new Map();
-  private readonly _leakInfo: Map<string, LeakInfo> = new Map();
 
-  private refreshTimer: NodeJS.Timeout | null = null;
+  private syncTimer: NodeJS.Timeout | null = null;
   private lastFullRefresh: number = 0;
 
   private constructor(
-    private readonly updateHandler: (update: DeviceUpdate) => (void),
     private readonly username: string,
     private readonly password: string,
     private readonly clientId: string,
@@ -69,7 +45,6 @@ export class FlumeAPI {
   }
 
   static async login(
-    updateHandler: (update: DeviceUpdate) => (void),
     username: string,
     password: string,
     clientId: string,
@@ -78,11 +53,12 @@ export class FlumeAPI {
     log: Logger,
     isBeta: boolean,
   ): Promise<FlumeAPI> {
-    const api = new FlumeAPI(updateHandler, username, password, clientId, clientSecret, refreshInterval, log, isBeta);
-    await api.obtainToken();
-    await api.getDevices();
-    await api.syncInfo();
-    api.startRefreshTimer();
+    const api = new FlumeAPI(username, password, clientId, clientSecret, refreshInterval, log, isBeta);
+    if (await api.login()) {
+      await api.getDevices();
+      await api.synchronizeData();    
+      api.startSyncTimer();
+    }
     return api;
   }
 
@@ -91,289 +67,197 @@ export class FlumeAPI {
   }
 
   teardown() {
-    if (this.refreshTimer) {
-      clearInterval(this.refreshTimer);
-      this.refreshTimer = null;
+    if (this.syncTimer) {
+      clearInterval(this.syncTimer);
+      this.syncTimer = null;
     }
   }
 
-  private async obtainToken(): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async do<T = any>(
+    caller: string, 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: any | null, 
+    shouldRetry: boolean,
+    url: string, 
+    ...parameters: (string|undefined)[]
+  ):  Promise<T[] | null> {
+
+    parameters.forEach(param => {
+      url = url.replace('%s', param ?? '');
+    });
+
+    let config: AxiosRequestConfig;
+    if (this.auth) {
+      config = { headers: { Authorization: `Bearer ${this.auth.token}` }, timeout: HTTP_TIMEOUT };
+    } else {
+      config = { timeout: HTTP_TIMEOUT };
+    }
+
     try {
 
-      // Generate the JSON data to send
-      const body = {
-        grant_type: 'password',
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
-        username: this.username,
-        password: this.password,
-      };
-      
-      const now = Date.now();
+      let res: AxiosResponse<FlumeResponse<T>>;
+      if (data) {
+        res = await axios.post(url, data, config);
+      } else {
+        res = await axios.get(url, config);
+      }
 
-      // Perform the HTTP request
-      const res: AxiosResponse<TokenResponse> = await axios.post('https://api.flumetech.com/oauth/token', body, {
-        timeout: 10 * SECOND,
-      });
-
-      // Check to see we got a response
-      if (!res.data) {
+      if (!res.data || !res.data.data || !res.data.data[0]) {
+        this.logHTTP(LogLevel.DEBUG, caller, JSON.stringify(res.data));
         throw new Error(strings.noDataReceived);
       }
 
-      /*
-        {
-          success: true,
-          code: 602,
-          message: 'Request OK',
-          http_code: 200,
-          http_message: 'OK',
-          detailed: null,
-          data: [
-            {
-              token_type: 'bearer',
-              access_token: '',
-              expires_in: 604800,
-              refresh_token: ''
-            }
-          ],
-          count: 1,
-          pagination: null
-        }
-      */
+      this.logIfBeta(caller, res.data);
 
-      // Check to see we got a proper response
-      if (!res.data.data || !res.data.data[0]) {
-        this.log.warn('[HTTP obtainToken()] %s.', JSON.stringify(res.data));
-        throw new Error(strings.noDataReceived);
-      }
+      return res.data.data;
 
-      // Make the token available in other functions
-      this.accessToken = res.data.data[0].access_token;
-      this.refreshToken = res.data.data[0].refresh_token;
-      this.expiresIn = now + res.data.data[0].expires_in;
-
-      // Log the response if in debug mode
-      this.logIfBeta(
-        '[HTTP obtainToken()] %s.',
-        JSON.stringify(res.data).replaceAll(this.accessToken, '[redacted]').replaceAll(this.refreshToken, '[redacted]'),
-      );
-
-      // Obtain the user ID
-      this.userId = (jwtDecode(this.accessToken) as JwtPayload).user_id;
-
-      /*
-        {
-          user_id: 0000,
-          type: 'USER',
-          scope: [ 'read:personal', 'update:personal', 'query:personal' ],
-          iat: 0000000000,
-          exp: 0000000000,
-          iss: 'flume_oauth',
-          sub: ''
-        }
-      */
-      return true;
     } catch (err: unknown) {
-      const error = err as { code?: string; message: string };
-      if (error.code && HTTP_RETRY_CODES.includes(error.code)) {
-        // Retry if another attempt could be successful
-        this.log.warn('[HTTP obtainToken()] %s [%s].', strings.httpRetry, error.code);
-        await this.sleep(30 * SECOND);
-        return this.obtainToken();
+      if (shouldRetry) {
+        return this.retryIfPossible<T>(err, caller, () => this.do<T>(caller, data, shouldRetry, url, ...parameters));
       }
-      throw new Error(`[HTTP obtainToken()] ${error.message}`);
+    }
+
+    return null;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async retryIfPossible<T = any>(err: unknown, name: string, retry: () => (Promise<T[] | null>)): Promise<T[] | null> {
+
+    const error = err as { code?: string; message: string };
+    this.logHTTP(LogLevel.DEBUG, name, error.message);
+
+    if (!error.code || !HTTP_RETRY_CODES.includes(error.code)) {
+      return null;
+    }
+    
+    this.log.warn(strings.httpRetry, RETRY_INTERVAL / SECOND);
+
+    const sleep = (ms: number): Promise<void> => {
+      return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+      });
+    };
+
+    // Retry if another attempt could be successful
+    await sleep(RETRY_INTERVAL);
+
+    return await retry();
+  }
+
+  private async login(): Promise<boolean> {
+
+    const data = {
+      grant_type: 'password',
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
+      username: this.username,
+      password: this.password,
+    };
+ 
+    const tokenData = await this.do<Types.TokenData>(this.login.name, data, true, URL_AUTH);
+
+    if (!tokenData) {
+      return false;
+    } 
+    
+    this.auth = new Auth(tokenData[0]);
+    this.userId = (jwtDecode(this.auth.token) as Types.JwtPayload).user_id;
+
+    return true;
+  }
+
+  private async authRefresh(): Promise<boolean> {
+
+    if (!this.auth?.refresh) {
+      this.logHTTP(LogLevel.DEBUG, this.authRefresh.name, strings.noRefreshToken);
+      return await this.login();
+    }
+
+    const data = {
+      grant_type: 'refresh_token',
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
+      refresh_token: this.auth.refresh,
+    };
+    
+    const tokenData = await this.do<Types.TokenData>(this.authRefresh.name, data, true, URL_AUTH);
+
+    if (!tokenData) {
+      return false;
+    } 
+    
+    this.auth = new Auth(tokenData[0]);
+
+    return true;
+  }
+
+  private async refreshAuthIfNecessary(): Promise<void> {
+    if (Date.now() > (this.auth?.expiry ?? 0)) {
+      await this.authRefresh();
     }
   }
 
-  private async renewToken(): Promise<boolean> {
-    try {
-      // Check we have a refresh token
-      if (!this.refreshToken) {
-        throw new Error(strings.noRefreshToken);
-      }
-
-      // Generate the JSON data to send
-      const body = {
-        grant_type: 'refresh_token',
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
-        refresh_token: this.refreshToken,
-      };
-      const now = Date.now();
-
-      // Perform the HTTP request
-      const res: AxiosResponse<TokenResponse> = await axios.post('https://api.flumetech.com/oauth/token', body, {
-        timeout: 10 * SECOND,
-      });
-
-      // Check to see we got a response
-      if (!res.data) {
-        throw new Error(strings.noDataReceived);
-      }
-
-      // Make the token available in other functions
-      this.accessToken = res.data.data[0].access_token;
-      this.refreshToken = res.data.data[0].refresh_token;
-      this.expiresIn = now + res.data.data[0].expires_in;
-
-      // Log the response if in debug mode
-      // Redact the access token and refresh token
-      this.logIfBeta(
-        '[HTTP renewToken()] %s.',
-        JSON.stringify(res.data).replaceAll(this.accessToken, '[redacted]').replaceAll(this.refreshToken, '[redacted]'),
-      );
-
-      /*
-          {
-            success: true,
-            code: 602,
-            message: 'Request OK',
-            http_code: 200,
-            http_message: 'OK',
-            detailed: null,
-            data: [
-              {
-                token_type: 'bearer',
-                access_token: '',
-                expires_in: 604800,
-                refresh_token: ''
-              }
-            ],
-            count: 1,
-            pagination: null
-          }
-        */
-      return true;
-    } catch (err: unknown) {
-      const error = err as { code?: string; message: string };
-      if (error.code && HTTP_RETRY_CODES.includes(error.code)) {
-        // Retry if another attempt could be successful
-        this.log.warn('[HTTP renewToken()] %s [%s].', strings.httpRetry, error.code);
-        await this.sleep(30 * SECOND);
-        return this.renewToken();
-      }
-      throw new Error(`[HTTP renewToken()] ${error.message}`);
-    }
-  }
-
-  private startRefreshTimer() {
+  private startSyncTimer() {
     this.teardown();
 
     // Note the Flume API has a limit of 120 requests per hour
-    this.refreshTimer = setInterval(() => {
-      this.syncInfo();
+    this.syncTimer = setInterval(() => {
+      this.synchronizeData();
     }, MINUTE * this.refreshInterval);
   }
 
-  async syncInfo(): Promise<void> {
+  private async getDevices(): Promise<boolean> {
 
-    this._devices.forEach(async (device: Device) => {
+    const deviceDatum = await this.do<Types.DeviceData>(this.getDevices.name, null, true, URL_GET_DEVICES, this.userId);
+    if (!deviceDatum) {
+      return false;
+    }
 
-      const id = device.id;
-
-      if (Date.now() - this.lastFullRefresh > FULL_REFRESH_INTERVAL) {
-        await this.getDeviceInfo(id);
-        await this.getWaterUsage(id);
-        this.lastFullRefresh = Date.now();
-      }
-
-      await this.getLeakInfo(id);
-
-      const newDevice = this._devices.get(id);
-      if (newDevice) {
-        const deviceUpdate = new DeviceUpdate(
-          newDevice,
-          this._waterUsage.get(id),
-          this._leakInfo.get(id),
-        );
-
-        this.updateHandler(deviceUpdate);
-      } else {
-        this.log.error(strings.missingDevice);
+    deviceDatum.forEach(deviceData => {
+      if (deviceData.bridge_id) {
+        const device = new Device(deviceData);
+        this._devices.set(device.id, device);
       }
     });
+
+    return true;
   }
 
-  private async getDevices(): Promise<void> {
-    try {
-      // Check we have a user id
-      if (!this.userId || !this.accessToken) {
-        throw new Error(strings.noUserId);
-      }
+  private async getDeviceData(deviceId: string): Promise<Types.DeviceData | null> {
+    const deviceDatum = await this.do<Types.DeviceData>(this.getDeviceData.name, null, false, URL_GET_DEVICE, this.userId, deviceId);
 
-      // Perform the HTTP request
-      const res: AxiosResponse<DeviceResponse> = await axios.get(
-        `https://api.flumetech.com/users/${this.userId}/devices?list_shared=true`,
-        {
-          headers: { Authorization: `Bearer ${this.accessToken}` },
-          timeout: 10 * SECOND,
-        },
-      );
-
-      // Check to see we got a response
-      if (!res.data) {
-        throw new Error(strings.noDataReceived);
-      }
-
-      // Log the response if in debug mode
-      this.logIfBeta('[HTTP getDevices()] %s.', JSON.stringify(res.data));
-
-      res.data.data.forEach(device => {
-        this._devices.set(device.id, device);
-      });
-    } catch (err: unknown) {
-      const error = err as { code?: string; message: string };
-      if (error.code && HTTP_RETRY_CODES.includes(error.code)) {
-        // Retry if another attempt could be successful
-        this.log.warn('[HTTP getDevices()] %s [%s].', strings.httpRetry, error.code);
-        await this.sleep(30 * SECOND);
-        return this.getDevices();
-      }
-      throw new Error(`[HTTP getDevices()] ${error.message}`);
+    if (!deviceDatum) {
+      return null;
     }
+
+    return deviceDatum[0];
   }
 
-  private async getDeviceInfo(deviceId: string): Promise<void> {
-    // Refresh the access token if it has expired already
-    if (Date.now() > (this.expiresIn ?? 0)) {
-      await this.renewToken();
+  async getLeakData(deviceId: string): Promise<Types.LeakData | null> {
+
+    const leakDatum = await this.do<Types.LeakData>(this.getLeakData.name, null, false, URL_LEAK_INFO, this.userId, deviceId);
+
+    if (!leakDatum) {
+      return null;
     }
-    const res: AxiosResponse<DeviceResponse> = await axios.get(
-      `https://api.flumetech.com/users/${this.userId}/devices/${deviceId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-        },
-      },
-    );
-    if (!res.data) {
-      throw new Error(strings.noDataReceived);
-    }
-    this.logIfBeta('[HTTP getDeviceInfo()] %s.', JSON.stringify(res.data));
-    this._devices.set(deviceId, res.data.data[0]);
+
+    return leakDatum[0];
   }
 
-  private async getWaterUsage(deviceId: string): Promise<void> {
-    // Refresh the access token if it has expired already
-    if (Date.now() > (this.expiresIn ?? 0)) {
-      await this.renewToken();
-    }
+  private async getUsageData(deviceId: string): Promise<Types.UsageData | null> {
 
+    // TODO need to make sure this is giving the correct values at the end of the day
     // Generate dates for the query data
-    const date = new Date();
-    const startOfToday = `${date.toISOString().substring(0, 10)} 00:00:00`;
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
 
-    // Set the date to the first of the current month
-    date.setDate(1);
-    const startOfCurrMonth = `${date.toISOString().substring(0, 10)} 00:00:00`;
+    const startOfToday = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} 00:00:00`;
+    const startOfCurrMonth = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01 00:00:00`;
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const startOfLastMonth = `${lastMonth.getFullYear()}-${pad(lastMonth.getMonth() + 1)}-01 00:00:00`;
 
-    // Set the month to the previous month
-    date.setMonth(date.getMonth() - 1);
-    const startOfPrevMonth = `${date.toISOString().substring(0, 10)} 00:00:00`;
-
-    // Generate the JSON data to send
-    const body = {
+    const data = {
       queries: [
         {
           request_id: 'today',
@@ -390,9 +274,9 @@ export class FlumeAPI {
           units: 'GALLONS',
         },
         {
-          request_id: 'prevMonth',
+          request_id: 'lastMonth',
           bucket: 'MON',
-          since_datetime: startOfPrevMonth,
+          since_datetime: startOfLastMonth,
           until_datetime: startOfCurrMonth,
           operation: 'SUM',
           units: 'GALLONS',
@@ -400,60 +284,61 @@ export class FlumeAPI {
       ],
     };
 
-    // Send the request
-    const res: AxiosResponse<WaterUsageResponse> = await axios.post(
-      `https://api.flumetech.com/users/${this.userId}/devices/${deviceId}/query`,
-      body,
-      {
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-        },
-      },
-    );
+    const usageDatum = await this.do<Types.UsageData>(this.getUsageData.name, data, false, URL_WATER_USAGE, this.userId, deviceId);
 
-    // Check to see we got a response
-    if (!res.data) {
-      throw new Error(strings.noDataReceived);
+    if (!usageDatum) {
+      return null;
     }
 
-    // Log the response if in debug mode
-    this.logIfBeta('[HTTP getWaterUsage()] %s.', JSON.stringify(res.data));
-
-    // Parse the response
-    this._waterUsage.set(deviceId, res.data.data);
+    return usageDatum[0];
   }
 
-  async getLeakInfo(deviceId: string): Promise<void> {
-    // Refresh the access token if it has expired already
-    if (Date.now() > (this.expiresIn ?? 0)) {
-      await this.renewToken();
-    }
-    const res: AxiosResponse<LeakInfoResponse> = await axios.get(
-      `https://api.flumetech.com/users/${this.userId}/devices/${deviceId}/leaks/active`,
-      {
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-        },
-      },
-    );
-    if (!res.data) {
-      throw new Error(strings.noDataReceived);
-    }
-    this.logIfBeta('[HTTP getLeakInfo()] %s.', JSON.stringify(res.data));
-    this._leakInfo.set(deviceId, res.data.data);
+  private async synchronizeData(): Promise<void> {
+
+    this.refreshAuthIfNecessary();
+
+    for (const device of this._devices.values()) {
+
+      const id = device.id;
+
+      let deviceData: Types.DeviceData | null = null;
+      let usageData: Types.UsageData | null = null;
+
+      if (Date.now() - this.lastFullRefresh > FULL_REFRESH_INTERVAL) {
+        deviceData = await this.getDeviceData(id);
+        usageData = await this.getUsageData(id);
+        this.lastFullRefresh = Date.now();
+      }
+
+      const leakData = await this.getLeakData(id);
+
+      device.update(deviceData, leakData, usageData);
+    };
   }
 
-  sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => {
-      setTimeout(resolve, ms);
-    });
+  private logHTTP(level: LogLevel, caller: string, message: string) {
+    this.log.log(level, '[HTTP %s()] %s', caller, message);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private logIfBeta(message: string, ...parameters: any[]) {
+  private logIfBeta(caller: string, data: any) {
+
     if (!this.isBeta) {
       return;
     }
-    this.log.info(message, parameters);
+
+    let message = JSON.stringify(data);
+
+    const token = data.data[0]?.access_token ?? this.auth?.token;
+    if (token) {
+      message = message.replaceAll(token, `**** ${strings.redacted} ****`);
+    }
+
+    const refresh = data.data[0]?.refresh_token ?? this.auth?.refresh;
+    if (refresh) {
+      message = message.replaceAll(refresh, `**** ${strings.redacted} ****`);
+    }
+
+    this.logHTTP(LogLevel.INFO, caller, message);
   }
 }

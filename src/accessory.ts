@@ -1,7 +1,7 @@
 import { Characteristic, Formats, HAP, Perms, PlatformAccessory, Service } from 'homebridge';
 import { FlumePlatform } from './platform.js';
 import langEn from './lang/en.js';
-import { Device, LeakInfo, WaterUsage } from './flume.js';
+import { Device, LeakInfo, WaterUsage } from './model/types.js';
 
 class CustomCharacteristic {
   constructor(readonly name: string, readonly uuid: string) {

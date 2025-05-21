@@ -14,7 +14,7 @@ export const DEFAULT_CONFIG =
   refreshInterval: DEFAULT_REFRESH_INTERVAL,
   platform: 'Flume',
 };
- 
+
 export const MIN_REFRESH_INTERVAL = 1;
 
 export const HTTP_RETRY_CODES = ['ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'ECONNABORTED'];

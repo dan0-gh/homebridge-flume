@@ -3,7 +3,7 @@
   "pluginType": "platform",
   "singular": true,
   "customUi": true,
-  "customUiPath": "./lib/homebridge-ui",
+  "customUiPath": "./src/homebridge-ui",
   "headerDisplay": "<p align=\"center\"><img width=\"60%\" src=\"https://github.com/mpatfield/homebridge-flume/blob/latest/img/banner.png\"></p><p align=\"center\">For help and support please visit <a href=\"https://github.com/mpatfield/homebridge-flume/\">GitHub</a>. We hope you find this plugin useful!</p>",
   "schema": {
     "type": "object",

@@ -1,7 +1,8 @@
 import { API, Logger, PlatformAccessory, PlatformConfig } from 'homebridge';
 import platformLang from './lang/en.js';
-import { Device, FlumeAPI } from './flume.js';
-import { DEFAULT_CONFIG, DEFAULT_REFRESH_INTERVAL, MIN_REFRESH_INTERVAL, MINUTE } from './constants.js';
+import { FlumeAPI } from './model/api.js';
+import { Device } from './model/types.js';
+import { DEFAULT_CONFIG, DEFAULT_REFRESH_INTERVAL, MIN_REFRESH_INTERVAL, MINUTE } from './model/constants.js';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import path from 'path';

@@ -1,8 +1,10 @@
 import axios, { AxiosResponse } from 'axios';
 import { Logger } from 'homebridge';
-import langEn from './lang/en.js';
 import { jwtDecode } from 'jwt-decode';
+
+import langEn from '../lang/en.js';
 import { HTTP_RETRY_CODES, SECOND } from './constants.js';
+import { Device, LeakInfo, WaterUsage } from './types.js';
 
 type TokenData = {
   token_type: string;
@@ -25,27 +27,9 @@ type JwtPayload = {
   sub: string;
 };
 
-export type WaterUsage = {
-  today: [{value: number}];
-  month: [{value: number}];
-  prevMonth: [{value: number}];
-}
-
-export type WaterUsageResponse = {
+type WaterUsageResponse = {
   data: WaterUsage;
 }
-
-export type LeakInfo = {
-  active: boolean;
-}
-
-export type Device = {
-  id: string;
-  bridge_id: string;
-  product: string;
-  battery_level: string;
-  connected: boolean;
-};
 
 type DeviceResponse = {
   data: Device[];

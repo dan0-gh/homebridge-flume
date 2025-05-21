@@ -15,3 +15,11 @@ export type WaterUsage = {
   month: [{ value: number; }];
   prevMonth: [{ value: number; }];
 };
+
+export class DeviceUpdate {
+  constructor(
+    readonly device: Device,
+    readonly waterUsage: WaterUsage | undefined,
+    readonly leakInfo: LeakInfo | undefined,
+  ) {}
+};

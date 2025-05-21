@@ -1,24 +1,16 @@
 import { Characteristic, Formats, HAP, Perms, PlatformAccessory, Service } from 'homebridge';
 import { FlumePlatform } from './platform.js';
-import langEn from './lang/en.js';
-import { Device, LeakInfo, WaterUsage } from './model/types.js';
+import strings from './lang/en.js';
+import { DeviceUpdate } from './model/types.js';
 
 class CustomCharacteristic {
   constructor(readonly name: string, readonly uuid: string) {
   }
 }
 
-export class LeakSensorUpdate {
-  constructor(
-    readonly devInfo: Device | undefined,
-    readonly waterUsage: WaterUsage | undefined,
-    readonly leakInfo: LeakInfo | undefined,
-  ) {}
-};
-
-const TODAY_USAGE = new CustomCharacteristic(langEn.customCharTodayUsage, 'E966F001-079E-48FF-8F27-9C2605A29F52');
-const MONTH_USAGE = new CustomCharacteristic(langEn.customCharMonthUsage, 'E966F002-079E-48FF-8F27-9C2605A29F52');
-const PREV_MONTH_USAGE = new CustomCharacteristic(langEn.customCharPreviousMonth, 'E966F003-079E-48FF-8F27-9C2605A29F52');
+const TODAY_USAGE = new CustomCharacteristic(strings.customCharTodayUsage, 'E966F001-079E-48FF-8F27-9C2605A29F52');
+const MONTH_USAGE = new CustomCharacteristic(strings.customCharMonthUsage, 'E966F002-079E-48FF-8F27-9C2605A29F52');
+const PREV_MONTH_USAGE = new CustomCharacteristic(strings.customCharPreviousMonth, 'E966F003-079E-48FF-8F27-9C2605A29F52');
 
 export class FlumeAccessory {
   private readonly HAP: HAP;
@@ -53,7 +45,7 @@ export class FlumeAccessory {
     this.prevMonthUsageChar = this.attachCustomCharacteristic(PREV_MONTH_USAGE);
   }
 
-  externalUpdate(update: LeakSensorUpdate): void {
+  externalUpdate(update: DeviceUpdate): void {
 
     // Check the data for leak detection
     if (update.leakInfo && this.hasProperty(update.leakInfo, 'active') && update.leakInfo.active !== this.cacheLeak) {
@@ -63,15 +55,15 @@ export class FlumeAccessory {
     }
 
     // Check the data for battery level, cacheBatt is true for OK and false for LOW
-    if (update.devInfo && this.hasProperty(update.devInfo, 'battery_level') && (update.devInfo.battery_level !== 'low') !== this.cacheBatt) {
-      this.cacheBatt = update.devInfo.battery_level !== 'low';
+    if (update.device && this.hasProperty(update.device, 'battery_level') && (update.device.battery_level !== 'low') !== this.cacheBatt) {
+      this.cacheBatt = update.device.battery_level !== 'low';
       this.leakService.updateCharacteristic(this.Characteristic.StatusLowBattery, this.cacheBatt ? 0 : 1);
       this.log(`current battery [${this.cacheBatt ? 'okay' : 'low'}]`);
     }
 
     // Check the data for connectivity, cacheStatus is true for OK and false for NOT CONNECTED
-    if (update.devInfo && this.hasProperty(update.devInfo, 'connected') && update.devInfo.connected !== this.cacheStatus) {
-      this.cacheStatus = update.devInfo.connected ?? false;
+    if (update.device && this.hasProperty(update.device, 'connected') && update.device.connected !== this.cacheStatus) {
+      this.cacheStatus = update.device.connected ?? false;
       this.leakService.updateCharacteristic(this.Characteristic.StatusFault, this.cacheStatus ? 0 : 1);
       this.log(`current status [${this.cacheStatus ? '' : 'not '}connected]`);
     }
@@ -99,7 +91,7 @@ export class FlumeAccessory {
       result = this.leakService.addCharacteristic(new this.Characteristic(char.name, char.uuid, {
         format: Formats.UINT32,
         perms: [ Perms.PAIRED_READ, Perms.NOTIFY ],
-        unit: langEn.customCharUnits,
+        unit: strings.customCharUnits,
       }));
     }
 

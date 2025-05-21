@@ -1,10 +1,14 @@
 import axios, { AxiosResponse } from 'axios';
-import { Logger } from 'homebridge';
 import { jwtDecode } from 'jwt-decode';
+import { Logger } from 'homebridge';
 
-import langEn from '../lang/en.js';
-import { HTTP_RETRY_CODES, SECOND } from './constants.js';
-import { Device, LeakInfo, WaterUsage } from './types.js';
+import { MINUTE, SECOND } from '../utils.js';
+import { Device, DeviceUpdate, LeakInfo, WaterUsage } from './types.js';
+import strings from '../lang/en.js';
+
+const HTTP_RETRY_CODES = ['ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'ECONNABORTED'];
+
+const FULL_REFRESH_INTERVAL = 15 * MINUTE;
 
 type TokenData = {
   token_type: string;
@@ -27,13 +31,13 @@ type JwtPayload = {
   sub: string;
 };
 
-type WaterUsageResponse = {
-  data: WaterUsage;
-}
-
 type DeviceResponse = {
   data: Device[];
 };
+
+type WaterUsageResponse = {
+  data: WaterUsage;
+}
 
 type LeakInfoResponse = {
   data: LeakInfo;
@@ -45,17 +49,55 @@ export class FlumeAPI {
   private expiresIn?: number;
   private userId?: string;
 
-  constructor(
-    private readonly log: Logger,
+  private readonly _devices: Map<string, Device> = new Map();
+  private readonly _waterUsage: Map<string, WaterUsage> = new Map();
+  private readonly _leakInfo: Map<string, LeakInfo> = new Map();
+
+  private refreshTimer: NodeJS.Timeout | null = null;
+  private lastFullRefresh: number = 0;
+
+  private constructor(
+    private readonly updateHandler: (update: DeviceUpdate) => (void),
     private readonly username: string,
     private readonly password: string,
     private readonly clientId: string,
     private readonly clientSecret: string,
+    private readonly refreshInterval: number,
+    private readonly log: Logger,
     private readonly isBeta: boolean,
   ) {
   }
 
-  async obtainToken(): Promise<boolean> {
+  static async login(
+    updateHandler: (update: DeviceUpdate) => (void),
+    username: string,
+    password: string,
+    clientId: string,
+    clientSecret: string,
+    refreshInterval: number,
+    log: Logger,
+    isBeta: boolean,
+  ): Promise<FlumeAPI> {
+    const api = new FlumeAPI(updateHandler, username, password, clientId, clientSecret, refreshInterval, log, isBeta);
+    await api.obtainToken();
+    await api.getDevices();
+    await api.syncInfo();
+    api.startRefreshTimer();
+    return api;
+  }
+
+  get devices(): Device[] {
+    return Array.from(this._devices.values());
+  }
+
+  teardown() {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+  }
+
+  private async obtainToken(): Promise<boolean> {
     try {
 
       // Generate the JSON data to send
@@ -76,7 +118,7 @@ export class FlumeAPI {
 
       // Check to see we got a response
       if (!res.data) {
-        throw new Error(langEn.noDataReceived);
+        throw new Error(strings.noDataReceived);
       }
 
       /*
@@ -103,7 +145,7 @@ export class FlumeAPI {
       // Check to see we got a proper response
       if (!res.data.data || !res.data.data[0]) {
         this.log.warn('[HTTP obtainToken()] %s.', JSON.stringify(res.data));
-        throw new Error(langEn.noDataReceived);
+        throw new Error(strings.noDataReceived);
       }
 
       // Make the token available in other functions
@@ -136,7 +178,7 @@ export class FlumeAPI {
       const error = err as { code?: string; message: string };
       if (error.code && HTTP_RETRY_CODES.includes(error.code)) {
         // Retry if another attempt could be successful
-        this.log.warn('[HTTP obtainToken()] %s [%s].', langEn.httpRetry, error.code);
+        this.log.warn('[HTTP obtainToken()] %s [%s].', strings.httpRetry, error.code);
         await this.sleep(30 * SECOND);
         return this.obtainToken();
       }
@@ -144,11 +186,11 @@ export class FlumeAPI {
     }
   }
 
-  async renewToken(): Promise<boolean> {
+  private async renewToken(): Promise<boolean> {
     try {
       // Check we have a refresh token
       if (!this.refreshToken) {
-        throw new Error(langEn.noRefreshToken);
+        throw new Error(strings.noRefreshToken);
       }
 
       // Generate the JSON data to send
@@ -167,7 +209,7 @@ export class FlumeAPI {
 
       // Check to see we got a response
       if (!res.data) {
-        throw new Error(langEn.noDataReceived);
+        throw new Error(strings.noDataReceived);
       }
 
       // Make the token available in other functions
@@ -207,7 +249,7 @@ export class FlumeAPI {
       const error = err as { code?: string; message: string };
       if (error.code && HTTP_RETRY_CODES.includes(error.code)) {
         // Retry if another attempt could be successful
-        this.log.warn('[HTTP renewToken()] %s [%s].', langEn.httpRetry, error.code);
+        this.log.warn('[HTTP renewToken()] %s [%s].', strings.httpRetry, error.code);
         await this.sleep(30 * SECOND);
         return this.renewToken();
       }
@@ -215,11 +257,49 @@ export class FlumeAPI {
     }
   }
 
-  async getDevices(): Promise<Device[]> {
+  private startRefreshTimer() {
+    this.teardown();
+
+    // Note the Flume API has a limit of 120 requests per hour
+    this.refreshTimer = setInterval(() => {
+      this.syncInfo();
+    }, MINUTE * this.refreshInterval);
+  }
+
+  async syncInfo(): Promise<void> {
+
+    this._devices.forEach(async (device: Device) => {
+
+      const id = device.id;
+
+      if (Date.now() - this.lastFullRefresh > FULL_REFRESH_INTERVAL) {
+        await this.getDeviceInfo(id);
+        await this.getWaterUsage(id);
+        this.lastFullRefresh = Date.now();
+      }
+
+      await this.getLeakInfo(id);
+
+      const newDevice = this._devices.get(id);
+      if (newDevice) {
+        const deviceUpdate = new DeviceUpdate(
+          newDevice,
+          this._waterUsage.get(id),
+          this._leakInfo.get(id),
+        );
+
+        this.updateHandler(deviceUpdate);
+      } else {
+        this.log.error(strings.missingDevice);
+      }
+    });
+  }
+
+  private async getDevices(): Promise<void> {
     try {
       // Check we have a user id
       if (!this.userId || !this.accessToken) {
-        throw new Error(langEn.noUserId);
+        throw new Error(strings.noUserId);
       }
 
       // Perform the HTTP request
@@ -233,18 +313,20 @@ export class FlumeAPI {
 
       // Check to see we got a response
       if (!res.data) {
-        throw new Error(langEn.noDataReceived);
+        throw new Error(strings.noDataReceived);
       }
 
       // Log the response if in debug mode
       this.logIfBeta('[HTTP getDevices()] %s.', JSON.stringify(res.data));
 
-      return res.data.data;
+      res.data.data.forEach(device => {
+        this._devices.set(device.id, device);
+      });
     } catch (err: unknown) {
       const error = err as { code?: string; message: string };
       if (error.code && HTTP_RETRY_CODES.includes(error.code)) {
         // Retry if another attempt could be successful
-        this.log.warn('[HTTP getDevices()] %s [%s].', langEn.httpRetry, error.code);
+        this.log.warn('[HTTP getDevices()] %s [%s].', strings.httpRetry, error.code);
         await this.sleep(30 * SECOND);
         return this.getDevices();
       }
@@ -252,7 +334,7 @@ export class FlumeAPI {
     }
   }
 
-  async getDeviceInfo(deviceId: string): Promise<Device> {
+  private async getDeviceInfo(deviceId: string): Promise<void> {
     // Refresh the access token if it has expired already
     if (Date.now() > (this.expiresIn ?? 0)) {
       await this.renewToken();
@@ -266,13 +348,13 @@ export class FlumeAPI {
       },
     );
     if (!res.data) {
-      throw new Error(langEn.noDataReceived);
+      throw new Error(strings.noDataReceived);
     }
     this.logIfBeta('[HTTP getDeviceInfo()] %s.', JSON.stringify(res.data));
-    return res.data.data[0];
+    this._devices.set(deviceId, res.data.data[0]);
   }
 
-  async getWaterUsage(deviceId: string): Promise<WaterUsage> {
+  private async getWaterUsage(deviceId: string): Promise<void> {
     // Refresh the access token if it has expired already
     if (Date.now() > (this.expiresIn ?? 0)) {
       await this.renewToken();
@@ -331,17 +413,17 @@ export class FlumeAPI {
 
     // Check to see we got a response
     if (!res.data) {
-      throw new Error(langEn.noDataReceived);
+      throw new Error(strings.noDataReceived);
     }
 
     // Log the response if in debug mode
     this.logIfBeta('[HTTP getWaterUsage()] %s.', JSON.stringify(res.data));
 
     // Parse the response
-    return res.data.data;
+    this._waterUsage.set(deviceId, res.data.data);
   }
 
-  async getLeakInfo(deviceId: string): Promise<LeakInfo> {
+  async getLeakInfo(deviceId: string): Promise<void> {
     // Refresh the access token if it has expired already
     if (Date.now() > (this.expiresIn ?? 0)) {
       await this.renewToken();
@@ -355,10 +437,10 @@ export class FlumeAPI {
       },
     );
     if (!res.data) {
-      throw new Error(langEn.noDataReceived);
+      throw new Error(strings.noDataReceived);
     }
     this.logIfBeta('[HTTP getLeakInfo()] %s.', JSON.stringify(res.data));
-    return res.data.data;
+    this._leakInfo.set(deviceId, res.data.data);
   }
 
   sleep(ms: number): Promise<void> {

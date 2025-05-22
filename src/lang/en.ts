@@ -6,8 +6,7 @@ const langEn = {
 
   // Startup
   beta: 'This is a beta version of Flume. You will experience more logging than normal.',
-  complete: '✓ Setup complete',
-  initializing: 'Initializing plugin…',
+  complete: '✓ Setup complete.',
   newDevice: 'Adding new device:',
   removeDevice: 'Removing device:',
   restoringDevice: 'Restoring device:',

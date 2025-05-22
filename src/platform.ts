@@ -30,8 +30,7 @@ export class FlumePlatform implements DynamicPlatformPlugin {
     this.isBeta = this.packageVersion.includes('beta');
 
     this.log.info(
-      '%s v%s | System %s | Node %s | HB v%s | HAPNodeJS v%s',
-      strings.initializing,
+      'v%s | System %s | Node %s | HB v%s | HAPNodeJS v%s',
       packageVersion,
       process.platform,
       process.version,
@@ -91,10 +90,8 @@ export class FlumePlatform implements DynamicPlatformPlugin {
       }
     });
 
-    this.log.info(strings.complete);
-
     const randIndex = Math.floor(Math.random() * strings.welcomeMessages.length);
-    this.log.info(strings.welcomeMessages[randIndex]);
+    this.log.info(strings.complete, strings.welcomeMessages[randIndex]);
   }
 
   shutdown(): void {

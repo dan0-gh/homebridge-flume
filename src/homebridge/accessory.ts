@@ -1,7 +1,9 @@
 import { Characteristic, Formats, HAP, LogLevel, Perms, PlatformAccessory, Service } from 'homebridge';
+
 import { FlumePlatform } from './platform.js';
-import strings from './lang/en.js';
-import { Device } from './model/device.js';
+
+import strings from '../lang/en.js';
+import { Device } from '../model/device.js';
 
 class CustomCharacteristic {
   constructor(readonly uuid: string, readonly name: string) {

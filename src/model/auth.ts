@@ -1,8 +1,9 @@
 import crypto from 'crypto';
 
-import { safeSetItem, safeGetItem } from '../tools/storage.js';
-import { DAY, SECOND } from './time.js';
 import { TokenData } from './types.js';
+
+import { safeSetItem, safeGetItem } from '../tools/storage.js';
+import { DAY, SECOND } from '../tools/time.js';
 
 const STORAGE_AUTH_KEY = 'auth';
 

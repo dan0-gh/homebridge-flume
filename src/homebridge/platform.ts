@@ -5,13 +5,14 @@ import { fileURLToPath } from 'url';
 
 import { FlumeAccessory } from './accessory.js';
 
-import strings from './lang/en.js';
+import strings from '../lang/en.js';
 
-import { FlumeAPI } from './model/api.js';
-import { PLATFORM_ALIAS } from './index.js';
-import { Device } from './model/device.js';
-import { STORAGE_FILE_NAME } from './tools/storage.js';
+import { FlumeAPI } from '../model/api.js';
+import { Device } from '../model/device.js';
 
+import { STORAGE_FILE_NAME } from '../tools/storage.js';
+
+export const PLATFORM_ALIAS = 'Flume';
 const PLUGIN_NAME = 'homebridge-flume';
 
 export class FlumePlatform implements DynamicPlatformPlugin {
@@ -138,7 +139,7 @@ export class FlumePlatform implements DynamicPlatformPlugin {
   get packageVersion(): string {
     try {
       const __dirname = path.dirname(fileURLToPath(import.meta.url));
-      const packageJSONPath = path.join(__dirname, '../package.json');
+      const packageJSONPath = path.join(__dirname, '../../package.json');
       const packageJSON = JSON.parse(fs.readFileSync(packageJSONPath, { encoding: 'utf8' }));
       return packageJSON.version;
     } catch (error) {

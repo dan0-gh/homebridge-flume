@@ -1,14 +1,13 @@
 import axios, { AxiosResponse, AxiosRequestConfig, isAxiosError } from 'axios';
-import { jwtDecode } from 'jwt-decode';
 import { Logger, LogLevel } from 'homebridge';
+import { jwtDecode } from 'jwt-decode';
 
 import { Auth } from './auth.js';
 import { Device } from './device.js';
 import * as Types from './types.js';
 
 import strings from '../lang/en.js';
-import { FlumeResponse } from './types.js';
-import { MINUTE, SECOND } from './time.js';
+import { MINUTE, SECOND } from '../tools/time.js';
 
 const URL_AUTH = 'https://api.flumetech.com/oauth/token';
 const URL_GET_DEVICES = 'https://api.flumetech.com/users/%s/devices?list_shared=true';
@@ -115,7 +114,7 @@ export class FlumeAPI {
 
     try {
 
-      let res: AxiosResponse<FlumeResponse<T>>;
+      let res: AxiosResponse<Types.FlumeResponse<T>>;
       if (data) {
         res = await axios.post(url, data, config);
       } else {

@@ -14,7 +14,7 @@
     "name": "homebridge-flume"
   },
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/homebridge/index.js",
   "keywords": [
     "homebridge",
     "homebridge-plugin",

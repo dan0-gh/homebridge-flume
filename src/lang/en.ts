@@ -22,7 +22,7 @@ const langEn = {
   noDataReceived: 'No data received from http request',
   noDevices: 'No devices were found in your account',
   noRefreshToken: 'No refresh token has been retrieved. Performing full auth instead…',
-  httpRetry: 'Request failed. Retrying in %s seconds…',
+  httpRetry: 'Request failed. Retrying in %s minutes…',
 
   // Status
   batteryLow: 'Battery is low',

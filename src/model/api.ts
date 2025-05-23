@@ -30,13 +30,15 @@ const HTTP_RETRY_CODES = [
 
 const FULL_REFRESH_INTERVAL = 15 * MINUTE;
 
-const RETRY_INTERVAL = 30 * SECOND;
+const RETRY_INTERVALS = [1, 2, 5, 10, 15, 30, 60];
 
 export class FlumeAPI {
   private _auth?: Auth | null;
   private userId?: string;
 
   private readonly _devices: Map<string, Device> = new Map();
+
+  private retryIndex: number = 0;
 
   private syncTimer: NodeJS.Timeout | null = null;
   private lastFullRefresh: number = 0;
@@ -127,9 +129,12 @@ export class FlumeAPI {
         throw new Error(strings.noDataReceived);
       }
 
-      this.logIfBeta(caller, res.data);
+      const returnValue = shouldReturnArray ? res.data.data as T : res.data.data[0];
 
-      return shouldReturnArray ? res.data.data as T : res.data.data[0];
+      this.logIfBeta(caller, res.data);
+      this.retryIndex = 0;
+
+      return returnValue;
 
     } catch (err: unknown) {
       if (shouldRetry) {
@@ -151,13 +156,15 @@ export class FlumeAPI {
   
     const errorCode = err.code || err.response?.status?.toString() || 'UNKNOWN';
 
-    if (!HTTP_RETRY_CODES.includes(errorCode)) {
+    if (!HTTP_RETRY_CODES.includes(errorCode) || this.retryIndex >= RETRY_INTERVALS.length) {
       this.logHTTP(LogLevel.WARN, caller, err.message);
       return null;
     }
     
-    this.log.warn(strings.httpRetry, RETRY_INTERVAL / SECOND);
-    await new Promise(resolve => setTimeout(resolve, RETRY_INTERVAL));
+    this.log.warn(strings.httpRetry, RETRY_INTERVALS[this.retryIndex]);
+    await new Promise(resolve => setTimeout(resolve, RETRY_INTERVALS[this.retryIndex] * MINUTE));
+
+    this.retryIndex += 1;
 
     return await retry();
   }

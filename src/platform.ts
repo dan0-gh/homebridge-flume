@@ -109,7 +109,7 @@ export class FlumePlatform implements DynamicPlatformPlugin {
 
     let accessory = this.accessories.get(uuid);
     if (accessory) {
-      new FlumeAccessory(this, accessory, device);
+      new FlumeAccessory(this, accessory, device, this.config.disableDeviceLogging);
       return;
     }
 
@@ -118,7 +118,7 @@ export class FlumePlatform implements DynamicPlatformPlugin {
     accessory = new this.api.platformAccessory(strings.brand, uuid);
     accessory.context.deviceId = device.id;
 
-    new FlumeAccessory(this, accessory, device);
+    new FlumeAccessory(this, accessory, device, this.config.disableDeviceLogging);
 
     this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_ALIAS, [accessory]);
     this.accessories.set(uuid, accessory);

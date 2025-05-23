@@ -37,6 +37,7 @@ export class FlumeAccessory {
     readonly platform: FlumePlatform, 
     readonly accessory: PlatformAccessory,
     readonly device: Device,
+    readonly disableLogging: boolean,
   ) {
 
     this.HAP = platform.api.hap;
@@ -139,6 +140,8 @@ export class FlumeAccessory {
   }
 
   private logState(level: LogLevel, message: string) {
-    this.platform.log.log(level, '[%s] %s', this.device.id, message);
+    if (!this.disableLogging) {
+      this.platform.log.log(level, '[%s] %s', this.device.id, message);
+    }
   }
 }

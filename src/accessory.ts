@@ -8,9 +8,11 @@ class CustomCharacteristic {
   }
 }
 
-const TODAY_USAGE = new CustomCharacteristic('f25cc272-83cb-46a7-915a-259fa17364ed', strings.customCharTodayUsage);
-const MONTH_USAGE = new CustomCharacteristic('580e224d-edf2-4c23-af79-cdbebfc509c5', strings.customCharMonthUsage);
-const LAST_MONTH_USAGE = new CustomCharacteristic('69129d54-bdb8-46a1-a93b-f7e8d16d32a8', strings.customCharLastMonth);
+const TODAY_USAGE = new CustomCharacteristic('f25cc272-83cb-46a7-915a-259fa17364ed', strings.todayUsage);
+const MONTH_USAGE = new CustomCharacteristic('580e224d-edf2-4c23-af79-cdbebfc509c5', strings.monthUsage);
+const LAST_MONTH_USAGE = new CustomCharacteristic('69129d54-bdb8-46a1-a93b-f7e8d16d32a8', strings.lastMonth);
+
+const LEGACY_CHARS = ['Month Usage', 'Previous Month', 'Today Usage'];
 
 export class FlumeAccessory {
   private readonly HAP: HAP;
@@ -64,6 +66,14 @@ export class FlumeAccessory {
     this.todayUsageChar = this.attachCustomCharacteristic(TODAY_USAGE);
     this.monthUsageChar = this.attachCustomCharacteristic(MONTH_USAGE);
     this.lastMonthUsageChar = this.attachCustomCharacteristic(LAST_MONTH_USAGE);
+
+    // Remove no longer used characteristics if they exists
+    LEGACY_CHARS.forEach((name) => {
+      if (this.leakService.testCharacteristic(name)) {
+        const legacyChar = this.leakService.getCharacteristic(name)!;
+        this.leakService.removeCharacteristic(legacyChar);
+      }
+    });
 
     device.setOnUpdateCallback(this.handleUpdate.bind(this));
 

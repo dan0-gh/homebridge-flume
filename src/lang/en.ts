@@ -33,10 +33,10 @@ const langEn = {
   leakNotDetected: 'No leaks detected',
 
   // Custom Characteristic
-  customCharMonthUsage: 'Month Usage',
-  customCharLastMonth: 'Last Month',
-  customCharTodayUsage: 'Today Usage',
   customCharUnits: 'Gallons',
+  lastMonth: 'Last Month',
+  monthUsage: 'This Month',
+  todayUsage: 'Today',
 };
 
 export default langEn;

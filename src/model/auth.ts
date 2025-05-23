@@ -1,5 +1,5 @@
-import { DAY, SECOND } from './time';
-import { TokenData } from './types';
+import { DAY, SECOND } from './time.js';
+import { TokenData } from './types.js';
 
 export class Auth {
 

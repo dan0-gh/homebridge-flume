@@ -2,7 +2,7 @@
 
 All notable changes to homebridge-flume will be documented in this file.
 
-## 3.0.5-beta.1 (2025-05-23)
+## 3.0.5-beta (2025-05-23)
 
 # THIS BETA RELEASE IS A MAJOR REWRITE - PLEASE EXPECT SOME BUGS!
 

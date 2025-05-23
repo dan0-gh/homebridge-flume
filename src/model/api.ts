@@ -1,4 +1,4 @@
-import axios, { AxiosResponse, AxiosRequestConfig } from 'axios';
+import axios, { AxiosResponse, AxiosRequestConfig, isAxiosError } from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import { Logger, LogLevel } from 'homebridge';
 
@@ -6,7 +6,6 @@ import { Auth } from './auth.js';
 import { Device } from './device.js';
 import * as Types from './types.js';
 
-import { MINUTE, SECOND } from '../utils.js';
 import strings from '../lang/en.js';
 import { FlumeResponse } from './types.js';
 
@@ -16,9 +15,21 @@ const URL_GET_DEVICE = 'https://api.flumetech.com/users/%s/devices/%s';
 const URL_WATER_USAGE = 'https://api.flumetech.com/users/%s/devices/%s/query';
 const URL_LEAK_INFO = 'https://api.flumetech.com/users/%s/devices/%s/leaks/active';
 
+const SECOND = 1000;
+const MINUTE = 60 * SECOND;
+
 const HTTP_TIMEOUT = 10 * SECOND;
 
-const HTTP_RETRY_CODES = ['ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'ECONNABORTED'];
+const HTTP_RETRY_CODES = [
+  'ERR_NETWORK',  // General network error in Axios
+  'ETIMEDOUT',    // Request timed out
+  'ECONNREFUSED', // Connection refused by server
+  '429',          // Too Many Requests (rate limit)
+  '500',          // Internal Server Error
+  '502',          // Bad Gateway
+  '503',          // Service Unavailable
+  '504',          // Gateway Timeout
+];
 
 const FULL_REFRESH_INTERVAL = 15 * MINUTE;
 
@@ -115,32 +126,30 @@ export class FlumeAPI {
     } catch (err: unknown) {
       if (shouldRetry) {
         return this.retryIfPossible<T>(err, caller, () => this.do<T>(caller, data, shouldRetry, url, ...parameters));
+      } else {
+        this.logHTTP(LogLevel.WARN, caller, (err as Error).message);
+        return null;
       }
     }
-
-    return null;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async retryIfPossible<T = any>(err: unknown, name: string, retry: () => (Promise<T[] | null>)): Promise<T[] | null> {
+  private async retryIfPossible<T = any>(err: unknown, caller: string, retry: () => (Promise<T[] | null>)): Promise<T[] | null> {
 
-    const error = err as { code?: string; message: string };
-    this.logHTTP(LogLevel.DEBUG, name, error.message);
+    if (!isAxiosError(err)) {
+      this.logHTTP(LogLevel.WARN, caller, (err as Error).message);
+      return null;
+    }
+  
+    const errorCode = err.code || err.response?.status?.toString() || 'UNKNOWN';
 
-    if (!error.code || !HTTP_RETRY_CODES.includes(error.code)) {
+    if (!HTTP_RETRY_CODES.includes(errorCode)) {
+      this.logHTTP(LogLevel.WARN, caller, err.message);
       return null;
     }
     
     this.log.warn(strings.httpRetry, RETRY_INTERVAL / SECOND);
-
-    const sleep = (ms: number): Promise<void> => {
-      return new Promise((resolve) => {
-        setTimeout(resolve, ms);
-      });
-    };
-
-    // Retry if another attempt could be successful
-    await sleep(RETRY_INTERVAL);
+    await new Promise(resolve => setTimeout(resolve, RETRY_INTERVAL));
 
     return await retry();
   }
@@ -295,7 +304,7 @@ export class FlumeAPI {
 
   private async synchronizeData(): Promise<void> {
 
-    this.refreshAuthIfNecessary();
+    await this.refreshAuthIfNecessary();
 
     for (const device of this._devices.values()) {
 

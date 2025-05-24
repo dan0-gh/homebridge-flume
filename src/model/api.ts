@@ -1,14 +1,13 @@
 import axios, { AxiosResponse, AxiosRequestConfig, isAxiosError } from 'axios';
-import { jwtDecode } from 'jwt-decode';
 import { Logger, LogLevel } from 'homebridge';
+import { jwtDecode } from 'jwt-decode';
 
 import { Auth } from './auth.js';
 import { Device } from './device.js';
 import * as Types from './types.js';
 
 import strings from '../lang/en.js';
-import { FlumeResponse } from './types.js';
-import { MINUTE, SECOND } from './time.js';
+import { MINUTE, SECOND } from '../tools/time.js';
 
 const URL_AUTH = 'https://api.flumetech.com/oauth/token';
 const URL_GET_DEVICES = 'https://api.flumetech.com/users/%s/devices?list_shared=true';
@@ -31,13 +30,15 @@ const HTTP_RETRY_CODES = [
 
 const FULL_REFRESH_INTERVAL = 15 * MINUTE;
 
-const RETRY_INTERVAL = 30 * SECOND;
+const RETRY_INTERVALS = [1, 2, 5, 10, 15, 30, 60];
 
 export class FlumeAPI {
-  private auth?: Auth;
+  private _auth?: Auth | null;
   private userId?: string;
 
   private readonly _devices: Map<string, Device> = new Map();
+
+  private retryIndex: number = 0;
 
   private syncTimer: NodeJS.Timeout | null = null;
   private lastFullRefresh: number = 0;
@@ -48,9 +49,11 @@ export class FlumeAPI {
     private readonly clientId: string,
     private readonly clientSecret: string,
     private readonly refreshInterval: number,
+    private storagePath: string,
     private readonly log: Logger,
     private readonly isBeta: boolean,
   ) {
+    this.auth = Auth.load(this.storagePath, this.clientId);
   }
 
   static async connect(
@@ -59,15 +62,23 @@ export class FlumeAPI {
     clientId: string,
     clientSecret: string,
     refreshInterval: number,
+    storagePath: string,
     log: Logger,
     isBeta: boolean,
   ): Promise<FlumeAPI> {
-    const api = new FlumeAPI(username, password, clientId, clientSecret, refreshInterval, log, isBeta);
-    if (await api.authenticate()) {
+    const api = new FlumeAPI(username, password, clientId, clientSecret, refreshInterval, storagePath, log, isBeta);
+
+    let shouldContinue = true;
+    if (!api.auth) {
+      shouldContinue = await api.authenticate();
+    }
+
+    if (shouldContinue) {
       await api.getDevices();
       await api.synchronizeData();    
       api.startSyncTimer();
     }
+    
     return api;
   }
 
@@ -87,10 +98,11 @@ export class FlumeAPI {
     caller: string, 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: any | null, 
+    shouldReturnArray: boolean,
     shouldRetry: boolean,
     url: string, 
     ...parameters: (string|undefined)[]
-  ):  Promise<T[] | null> {
+  ):  Promise<T | null> {
 
     parameters.forEach(param => {
       url = url.replace('%s', param ?? '');
@@ -105,7 +117,7 @@ export class FlumeAPI {
 
     try {
 
-      let res: AxiosResponse<FlumeResponse<T>>;
+      let res: AxiosResponse<Types.FlumeResponse<T>>;
       if (data) {
         res = await axios.post(url, data, config);
       } else {
@@ -117,13 +129,16 @@ export class FlumeAPI {
         throw new Error(strings.noDataReceived);
       }
 
-      this.logIfBeta(caller, res.data);
+      const returnValue = shouldReturnArray ? res.data.data as T : res.data.data[0];
 
-      return res.data.data;
+      this.logIfBeta(caller, res.data);
+      this.retryIndex = 0;
+
+      return returnValue;
 
     } catch (err: unknown) {
       if (shouldRetry) {
-        return this.retryIfPossible<T>(err, caller, () => this.do<T>(caller, data, shouldRetry, url, ...parameters));
+        return this.retryIfPossible<T>(err, caller, () => this.do<T>(caller, data, shouldReturnArray, shouldRetry, url, ...parameters));
       } else {
         this.logHTTP(LogLevel.WARN, caller, (err as Error).message);
         return null;
@@ -132,7 +147,7 @@ export class FlumeAPI {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async retryIfPossible<T = any>(err: unknown, caller: string, retry: () => (Promise<T[] | null>)): Promise<T[] | null> {
+  private async retryIfPossible<T = any>(err: unknown, caller: string, retry: () => (Promise<T | null>)): Promise<T | null> {
 
     if (!isAxiosError(err)) {
       this.logHTTP(LogLevel.WARN, caller, (err as Error).message);
@@ -141,15 +156,30 @@ export class FlumeAPI {
   
     const errorCode = err.code || err.response?.status?.toString() || 'UNKNOWN';
 
-    if (!HTTP_RETRY_CODES.includes(errorCode)) {
+    if (!HTTP_RETRY_CODES.includes(errorCode) || this.retryIndex >= RETRY_INTERVALS.length) {
       this.logHTTP(LogLevel.WARN, caller, err.message);
       return null;
     }
     
-    this.log.warn(strings.httpRetry, RETRY_INTERVAL / SECOND);
-    await new Promise(resolve => setTimeout(resolve, RETRY_INTERVAL));
+    this.log.warn(strings.httpRetry, RETRY_INTERVALS[this.retryIndex]);
+    await new Promise(resolve => setTimeout(resolve, RETRY_INTERVALS[this.retryIndex] * MINUTE));
+
+    this.retryIndex += 1;
 
     return await retry();
+  }
+
+  private get auth(): Auth | null {
+    return this._auth ?? null;
+  }
+  
+  private set auth(value: Auth | null) {
+    this._auth = value;
+
+    if (this._auth) {
+      this._auth.save(this.storagePath, this.clientId);
+      this.userId = (jwtDecode(this._auth.token) as Types.JwtPayload).user_id;
+    }
   }
 
   private async authenticate(): Promise<boolean> {
@@ -162,14 +192,13 @@ export class FlumeAPI {
       password: this.password,
     };
  
-    const tokenData = await this.do<Types.TokenData>(this.authenticate.name, data, true, URL_AUTH);
+    const tokenData = await this.do<Types.TokenData>(this.authenticate.name, data, false, true, URL_AUTH);
 
     if (!tokenData) {
       return false;
     } 
     
-    this.auth = new Auth(tokenData[0]);
-    this.userId = (jwtDecode(this.auth.token) as Types.JwtPayload).user_id;
+    this.auth = new Auth(tokenData);
 
     return true;
   }
@@ -188,13 +217,13 @@ export class FlumeAPI {
       refresh_token: this.auth.refresh,
     };
     
-    const tokenData = await this.do<Types.TokenData>(this.authRefresh.name, data, true, URL_AUTH);
+    const tokenData = await this.do<Types.TokenData>(this.authRefresh.name, data, false, true, URL_AUTH);
 
     if (!tokenData) {
       return false;
     } 
     
-    this.auth = new Auth(tokenData[0]);
+    this.auth = new Auth(tokenData);
 
     return true;
   }
@@ -216,7 +245,9 @@ export class FlumeAPI {
 
   private async getDevices(): Promise<boolean> {
 
-    const deviceDatum = await this.do<Types.DeviceData>(this.getDevices.name, null, true, URL_GET_DEVICES, this.userId);
+    await this.refreshAuthIfNecessary();
+
+    const deviceDatum = await this.do<Types.DeviceData[]>(this.getDevices.name, null, true, true, URL_GET_DEVICES, this.userId);
     if (!deviceDatum) {
       return false;
     }
@@ -232,24 +263,24 @@ export class FlumeAPI {
   }
 
   private async getDeviceData(deviceId: string): Promise<Types.DeviceData | null> {
-    const deviceDatum = await this.do<Types.DeviceData>(this.getDeviceData.name, null, false, URL_GET_DEVICE, this.userId, deviceId);
+    const deviceDatum = await this.do<Types.DeviceData>(this.getDeviceData.name, null, false, false, URL_GET_DEVICE, this.userId, deviceId);
 
     if (!deviceDatum) {
       return null;
     }
 
-    return deviceDatum[0];
+    return deviceDatum;
   }
 
   async getLeakData(deviceId: string): Promise<Types.LeakData | null> {
 
-    const leakDatum = await this.do<Types.LeakData>(this.getLeakData.name, null, false, URL_LEAK_INFO, this.userId, deviceId);
+    const leakDatum = await this.do<Types.LeakData>(this.getLeakData.name, null, false, false, URL_LEAK_INFO, this.userId, deviceId);
 
     if (!leakDatum) {
       return null;
     }
 
-    return leakDatum[0];
+    return leakDatum;
   }
 
   private async getUsageData(deviceId: string): Promise<Types.UsageData | null> {
@@ -290,13 +321,13 @@ export class FlumeAPI {
       ],
     };
 
-    const usageDatum = await this.do<Types.UsageData>(this.getUsageData.name, data, false, URL_WATER_USAGE, this.userId, deviceId);
+    const usageDatum = await this.do<Types.UsageData>(this.getUsageData.name, data, false, false, URL_WATER_USAGE, this.userId, deviceId);
 
     if (!usageDatum) {
       return null;
     }
 
-    return usageDatum[0];
+    return usageDatum;
   }
 
   private async synchronizeData(): Promise<void> {

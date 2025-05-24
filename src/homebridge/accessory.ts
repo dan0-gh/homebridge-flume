@@ -1,7 +1,9 @@
 import { Characteristic, Formats, HAP, LogLevel, Perms, PlatformAccessory, Service } from 'homebridge';
+
 import { FlumePlatform } from './platform.js';
-import strings from './lang/en.js';
-import { Device } from './model/device.js';
+
+import strings from '../lang/en.js';
+import { Device } from '../model/device.js';
 
 class CustomCharacteristic {
   constructor(readonly uuid: string, readonly name: string) {
@@ -37,6 +39,7 @@ export class FlumeAccessory {
     readonly platform: FlumePlatform, 
     readonly accessory: PlatformAccessory,
     readonly device: Device,
+    readonly disableLogging: boolean,
   ) {
 
     this.HAP = platform.api.hap;
@@ -139,6 +142,8 @@ export class FlumeAccessory {
   }
 
   private logState(level: LogLevel, message: string) {
-    this.platform.log.log(level, '[%s] %s', this.device.id, message);
+    if (!this.disableLogging) {
+      this.platform.log.log(level, '[%s] %s', this.device.id, message);
+    }
   }
 }

@@ -5,16 +5,19 @@ import { fileURLToPath } from 'url';
 
 import { FlumeAccessory } from './accessory.js';
 
-import strings from './lang/en.js';
+import strings from '../lang/en.js';
 
-import { FlumeAPI } from './model/api.js';
-import { PLATFORM_ALIAS } from './index.js';
-import { Device } from './model/device.js';
+import { FlumeAPI } from '../model/api.js';
+import { Device } from '../model/device.js';
 
+import { STORAGE_FILE_NAME } from '../tools/storage.js';
+
+export const PLATFORM_ALIAS = 'Flume';
 const PLUGIN_NAME = 'homebridge-flume';
 
 export class FlumePlatform implements DynamicPlatformPlugin {
 
+  private readonly storagePath: string;
   private isBeta: boolean = false;
   private flumeAPI: FlumeAPI | null = null;
 
@@ -25,6 +28,8 @@ export class FlumePlatform implements DynamicPlatformPlugin {
     readonly config: PlatformConfig,
     readonly api: API,
   ) {
+
+    this.storagePath = path.join(api.user.storagePath(), STORAGE_FILE_NAME);
 
     const packageVersion = this.packageVersion;
     this.isBeta = this.packageVersion.includes('beta');
@@ -66,6 +71,7 @@ export class FlumePlatform implements DynamicPlatformPlugin {
       this.config.clientId,
       this.config.clientSecret,
       this.config.refreshInterval,
+      this.storagePath,
       this.log,
       this.isBeta,
     );
@@ -104,7 +110,7 @@ export class FlumePlatform implements DynamicPlatformPlugin {
 
     let accessory = this.accessories.get(uuid);
     if (accessory) {
-      new FlumeAccessory(this, accessory, device);
+      new FlumeAccessory(this, accessory, device, this.config.disableDeviceLogging);
       return;
     }
 
@@ -113,7 +119,7 @@ export class FlumePlatform implements DynamicPlatformPlugin {
     accessory = new this.api.platformAccessory(strings.brand, uuid);
     accessory.context.deviceId = device.id;
 
-    new FlumeAccessory(this, accessory, device);
+    new FlumeAccessory(this, accessory, device, this.config.disableDeviceLogging);
 
     this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_ALIAS, [accessory]);
     this.accessories.set(uuid, accessory);
@@ -133,7 +139,7 @@ export class FlumePlatform implements DynamicPlatformPlugin {
   get packageVersion(): string {
     try {
       const __dirname = path.dirname(fileURLToPath(import.meta.url));
-      const packageJSONPath = path.join(__dirname, '../package.json');
+      const packageJSONPath = path.join(__dirname, '../../package.json');
       const packageJSON = JSON.parse(fs.readFileSync(packageJSONPath, { encoding: 'utf8' }));
       return packageJSON.version;
     } catch (error) {

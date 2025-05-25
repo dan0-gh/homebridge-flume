@@ -69,7 +69,8 @@ export class FlumePlatform implements DynamicPlatformPlugin {
       this.config.verbose,
     );
 
-    const devices = this.flumeAPI.devices;
+    const excludeDevices = new Set(this.config.excludeDevices ?? []);
+    const devices = this.flumeAPI.devices.filter((device: Device) => !excludeDevices.has(device.id));
     if (devices.length === 0) {
       this.accessories.forEach((accessory) => this.removeAccessory(accessory));
       this.log.warn(strings.noDevices);

@@ -9,65 +9,66 @@
     "required": ["username", "password", "clientId", "clientSecret", "refreshInterval"],
     "properties": {
       "name": {
-        "title": "Plugin Name",
         "type": "string",
+        "title": "Plugin Name",
         "default": "Flume"
       },
       "username": {
-        "title": "Flume Username",
         "type": "string",
+        "title": "Flume Username",
         "required": true
       },
       "password": {
-        "title": "Flume Password",
         "type": "string",
+        "title": "Flume Password",
         "required": true
       },
       "clientId": {
-        "title": "Client ID",
         "type": "string",
+        "title": "Client ID",
         "placeholder": "1234567890ABCD",
         "required": true
       },
       "clientSecret": {
-        "title": "Client Secret",
         "type": "string",
+        "title": "Client Secret",
+        "description": "Your Flume Client ID and Client Secret can be found at https://portal.flumetech.com",
         "placeholder": "1234567890ABCDEFGHIJ",
-        "required": true,
-        "description": "Your Flume Client ID and Client Secret can be found at https://portal.flumetech.com"
+        "required": true
+      },
+      "refreshInterval": {
+        "type": "integer",
+        "title": "Refresh Interval",
+        "description": "Number of minutes between requests to Flume for leak information",
+        "default": 2,
+        "minimum": 1,
+        "required": true
+      },
+       "excludeDevices": {
+        "type": "array",
+        "title": "Exclude devices",
+        "description": "List of devices to exclude from HomeKit -- look for \"Adding new device: [Device ID]\" in the logs",
+        "items": {
+          "title": "Device ID",
+          "type": "string"
+        },
+        "uniqueItems": true,
+        "default": [],
+        "required": false
       },
       "disableDeviceLogging": {
         "type": "boolean",
         "title": "Disable Device Logging",
+        "description": "If true then accessory status changes will not be logged",
         "default": false,
-        "description": "If true then accessory status changes will not be logged"
-      },
-      "refreshInterval": {
-        "title": "Refresh Interval",
-        "type": "integer",
-        "default": 2,
-        "minimum": 1,
-        "description": "Number of minutes between requests to Flume for leak information"
+        "required": false
       },
       "verbose": {
-        "title": "Verbose",
         "type": "boolean",
-        "required": false,
-        "description": "Enable additional debug logging"
+        "title": "Verbose",
+        "description": "Enable additional debug logging",
+        "required": false
       }
     }
-  },
-  "layout": [
-    {
-      "type": "fieldset",
-      "title": "Required Settings",
-      "items": ["username", "password", "clientId", "clientSecret"]
-    },
-    {
-      "type": "fieldset",
-      "title": "Advanced Settings",
-      "expandable": true,
-      "items": ["disableDeviceLogging", "verbose", "refreshInterval"]
-    }
-  ]
+  }
 }

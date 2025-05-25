@@ -46,15 +46,19 @@ Using the Homebridge Config UI is the easiest way to set up this plugin. However
   "clientId": "1234567890ABCD",
   "clientSecret": "1234567890ABCDEFGHIJ",
   "refreshInterval": 1,
+  "excludeDevices": ["1234567890", "9876543210"],
   "disableDeviceLogging": false,
+  "verbose": false
 }
 ```
 
 - `username` - (Required) Flume username
 - `password` - (Required) Flume password
 - `clientId`/`clientSecret` - (Required) Flume Client ID, found at [https://portal.flumetech.com](https://portal.flumetech.com)
-- `refreshInterval` - (Optional) number of minutes between updates; must be `1` or more
-- `disableDeviceLogging` - (Optional) if true then accessory status changes will not be logged
+- `refreshInterval` - (Required) number of minutes between updates; must be `1` or more
+- `excludeDevices` - (Optional) a list of devices to exclude; look for `Adding new device: [Device ID]` in the logs
+- `disableDeviceLogging` - (Optional) if true, then accessory status changes will not be logged
+- `verbose` - (Optional) if true, there will be additional logging for debugging purposes
 
 ## Credits
 

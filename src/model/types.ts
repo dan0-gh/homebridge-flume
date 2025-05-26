@@ -1,5 +1,12 @@
 import { AxiosResponse } from 'axios';
 
+export enum VolumeUnits {
+  GALLONS = 'GALLONS',
+  LITERS = 'LITERS',
+  CUBIC_FEET = 'CUBIC_FEET',
+  CUBIC_METERS = 'CUBIC_METERS',
+}
+
 export interface FlumeResponse<T> extends AxiosResponse {
   data: T[];
 }

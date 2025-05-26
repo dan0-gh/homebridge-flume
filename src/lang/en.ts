@@ -32,7 +32,10 @@ const langEn = {
   leakNotDetected: 'No leaks detected',
 
   // Custom Characteristic
-  customCharUnits: 'Gallons',
+  customCharUnitsGallons: 'Gallons',
+  customCharUnitsLiters: 'Liters',
+  customCharUnitsCubicFeet: 'Cubic Feet',
+  customCharUnitsCubicMeters: 'Cubic Meters',
   lastMonth: 'Last Month',
   monthUsage: 'This Month',
   todayUsage: 'Today',

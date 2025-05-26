@@ -11,6 +11,7 @@ import { FlumeAPI } from '../model/api.js';
 import { Device } from '../model/device.js';
 
 import { STORAGE_FILE_NAME } from '../tools/storage.js';
+import { VolumeUnits } from '../model/types.js';
 
 export const PLATFORM_ALIAS = 'Flume';
 const PLUGIN_NAME = 'homebridge-flume';
@@ -64,6 +65,7 @@ export class FlumePlatform implements DynamicPlatformPlugin {
       this.config.clientId,
       this.config.clientSecret,
       this.config.refreshInterval,
+      this.config.units ?? VolumeUnits.GALLONS,
       this.storagePath,
       this.log,
       this.config.verbose,
@@ -103,20 +105,18 @@ export class FlumePlatform implements DynamicPlatformPlugin {
     const uuid = this.api.hap.uuid.generate(device.id);
 
     let accessory = this.accessories.get(uuid);
-    if (accessory) {
-      new FlumeAccessory(this, accessory, device, this.config.disableDeviceLogging);
-      return;
+    if (!accessory) {
+      this.log.info(strings.newDevice, device.id);
+
+      accessory = new this.api.platformAccessory(strings.brand, uuid);
+      accessory.context.deviceId = device.id;
+
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_ALIAS, [accessory]);
+      this.accessories.set(uuid, accessory);
     }
 
-    this.log.info(strings.newDevice, device.id);
-
-    accessory = new this.api.platformAccessory(strings.brand, uuid);
-    accessory.context.deviceId = device.id;
-
-    new FlumeAccessory(this, accessory, device, this.config.disableDeviceLogging);
-
-    this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_ALIAS, [accessory]);
-    this.accessories.set(uuid, accessory);
+    const units = this.config.units ?? VolumeUnits.GALLONS;
+    new FlumeAccessory(this, accessory, device, units, this.config.disableDeviceLogging);
   }
 
   configureAccessory(accessory: PlatformAccessory): void {

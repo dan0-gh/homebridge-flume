@@ -6,7 +6,7 @@
   "customUiPath": "./src/homebridge-ui",
   "schema": {
     "type": "object",
-    "required": ["username", "password", "clientId", "clientSecret", "refreshInterval"],
+    "required": ["username", "password", "clientId", "clientSecret", "refreshInterval", "units"],
     "properties": {
       "name": {
         "type": "string",
@@ -44,17 +44,14 @@
         "minimum": 1,
         "required": true
       },
-       "excludeDevices": {
-        "type": "array",
-        "title": "Exclude devices",
-        "description": "List of devices to exclude from HomeKit -- look for \"Adding new device: [Device ID]\" in the logs",
-        "items": {
-          "title": "Device ID",
-          "type": "string"
-        },
-        "uniqueItems": true,
-        "default": [],
-        "required": false
+      "units": {
+        "type": "string",
+        "title": "Units",
+        "description": "Volume units to use for custom characteristics",
+        "enum": ["GALLONS", "LITERS", "CUBIC_FEET", "CUBIC_METERS"],
+        "enumNames": ["Gallons", "Liters", "Cubic Feet", "Cubic Meters"],
+        "default": "GALLONS",
+        "required": true
       },
       "disableDeviceLogging": {
         "type": "boolean",
@@ -67,6 +64,18 @@
         "type": "boolean",
         "title": "Verbose",
         "description": "Enable additional debug logging",
+        "required": false
+      },
+      "excludeDevices": {
+        "type": "array",
+        "title": "Exclude devices",
+        "description": "List of devices to exclude from HomeKit -- look for \"Adding new device: [Device ID]\" in the logs",
+        "items": {
+          "title": "Device ID",
+          "type": "string"
+        },
+        "uniqueItems": true,
+        "default": [],
         "required": false
       }
     }

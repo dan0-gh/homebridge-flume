@@ -49,6 +49,7 @@ export class FlumeAPI {
     private readonly clientId: string,
     private readonly clientSecret: string,
     private readonly refreshInterval: number,
+    private readonly units: Types.VolumeUnits,
     private storagePath: string,
     private readonly log: Logger,
     private readonly verbose: boolean,
@@ -62,11 +63,12 @@ export class FlumeAPI {
     clientId: string,
     clientSecret: string,
     refreshInterval: number,
+    units: Types.VolumeUnits,
     storagePath: string,
     log: Logger,
     verbose: boolean,
   ): Promise<FlumeAPI> {
-    const api = new FlumeAPI(username, password, clientId, clientSecret, refreshInterval, storagePath, log, verbose);
+    const api = new FlumeAPI(username, password, clientId, clientSecret, refreshInterval, units, storagePath, log, verbose);
 
     let shouldContinue = true;
     if (!api.auth) {
@@ -301,14 +303,14 @@ export class FlumeAPI {
           bucket: 'DAY',
           since_datetime: startOfToday,
           operation: 'SUM',
-          units: 'GALLONS',
+          units: this.units,
         },
         {
           request_id: 'month',
           bucket: 'MON',
           since_datetime: startOfCurrMonth,
           operation: 'SUM',
-          units: 'GALLONS',
+          units: this.units,
         },
         {
           request_id: 'lastMonth',
@@ -316,7 +318,7 @@ export class FlumeAPI {
           since_datetime: startOfLastMonth,
           until_datetime: startOfCurrMonth,
           operation: 'SUM',
-          units: 'GALLONS',
+          units: this.units,
         },
       ],
     };

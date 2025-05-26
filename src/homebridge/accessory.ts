@@ -4,6 +4,7 @@ import { FlumePlatform } from './platform.js';
 
 import strings from '../lang/en.js';
 import { Device } from '../model/device.js';
+import { VolumeUnits } from '../model/types.js';
 
 class CustomCharacteristic {
   constructor(readonly uuid: string, readonly name: string) {
@@ -13,8 +14,6 @@ class CustomCharacteristic {
 const TODAY_USAGE = new CustomCharacteristic('f25cc272-83cb-46a7-915a-259fa17364ed', strings.todayUsage);
 const MONTH_USAGE = new CustomCharacteristic('580e224d-edf2-4c23-af79-cdbebfc509c5', strings.monthUsage);
 const LAST_MONTH_USAGE = new CustomCharacteristic('69129d54-bdb8-46a1-a93b-f7e8d16d32a8', strings.lastMonth);
-
-const LEGACY_CHARS = ['Month Usage', 'Previous Month', 'Today Usage'];
 
 export class FlumeAccessory {
   private readonly HAP: HAP;
@@ -36,10 +35,11 @@ export class FlumeAccessory {
   private readonly lastMonthUsageChar: Characteristic;
 
   constructor(
-    readonly platform: FlumePlatform, 
-    readonly accessory: PlatformAccessory,
-    readonly device: Device,
-    readonly disableLogging: boolean,
+    private readonly platform: FlumePlatform, 
+    private readonly accessory: PlatformAccessory,
+    private readonly device: Device,
+    private readonly units: VolumeUnits,
+    private readonly disableLogging: boolean,
   ) {
 
     this.HAP = platform.api.hap;
@@ -66,17 +66,11 @@ export class FlumeAccessory {
     this.isBatteryLow = this.leakService.getCharacteristic(this.charStatusLowBattery).value === this.charStatusLowBattery.BATTERY_LEVEL_LOW;
     this.isDisconnected = this.leakService.getCharacteristic(this.charStatusFault).value === this.charStatusFault.GENERAL_FAULT;
 
+    this.clearCustomCharacteristics();
+
     this.todayUsageChar = this.attachCustomCharacteristic(TODAY_USAGE);
     this.monthUsageChar = this.attachCustomCharacteristic(MONTH_USAGE);
     this.lastMonthUsageChar = this.attachCustomCharacteristic(LAST_MONTH_USAGE);
-
-    // Remove no longer used characteristics if they exists
-    LEGACY_CHARS.forEach((name) => {
-      if (this.leakService.testCharacteristic(name)) {
-        const legacyChar = this.leakService.getCharacteristic(name)!;
-        this.leakService.removeCharacteristic(legacyChar);
-      }
-    });
 
     device.setOnUpdateCallback(this.handleUpdate.bind(this));
 
@@ -117,6 +111,29 @@ export class FlumeAccessory {
     this.lastMonthUsageChar.updateValue(this.device.usageLastMonth);
   }
 
+  private stringForUnits(units: VolumeUnits): string {
+    switch(units) {
+    case VolumeUnits.GALLONS: return strings.customCharUnitsGallons;
+    case VolumeUnits.LITERS: return strings.customCharUnitsLiters;
+    case VolumeUnits.CUBIC_FEET: return strings.customCharUnitsCubicFeet;
+    case VolumeUnits.CUBIC_METERS: return strings.customCharUnitsCubicMeters;
+    }
+  }
+
+  private clearCustomCharacteristics() {
+
+    const allowedUUIDs = new Set([
+      this.charLeakDetected.UUID,
+      this.charStatusLowBattery.UUID,
+      this.charStatusFault.UUID,
+    ]);
+
+    const charsToRemove = this.leakService.characteristics.filter(char => !allowedUUIDs.has(char.UUID));
+    charsToRemove.forEach(char => {
+      this.leakService.removeCharacteristic(char);
+    });
+  }
+
   private attachCustomCharacteristic(char: CustomCharacteristic): Characteristic {
     let result: Characteristic;
 
@@ -124,12 +141,13 @@ export class FlumeAccessory {
       result = this.leakService.getCharacteristic(char.name)!;
     } else {
 
+      const unitsString = this.stringForUnits(this.units);
       const customCharacteristic = class TodayUsage extends this.Characteristic {
         constructor() {
           super(char.name, char.uuid, {
             format: Formats.UINT32,
             perms: [ Perms.PAIRED_READ, Perms.NOTIFY ],
-            unit: strings.customCharUnits,
+            unit: unitsString,
           });
           this.value = this.getDefaultValue();
         }

@@ -46,7 +46,18 @@ export class FlumePlatform implements DynamicPlatformPlugin {
     this.api.on('shutdown', () => this.shutdown());
   }
 
-  async didFinishLaunching(): Promise<void> {
+  get packageVersion(): string {
+    try {
+      const __dirname = path.dirname(fileURLToPath(import.meta.url));
+      const packageJSONPath = path.join(__dirname, '../../package.json');
+      const packageJSON = JSON.parse(fs.readFileSync(packageJSONPath, { encoding: 'utf8' }));
+      return packageJSON.version;
+    } catch (error) {
+      return '0.0.0'; 
+    }
+  }
+
+  private async didFinishLaunching(): Promise<void> {
 
     if (
       !this.config.username ||
@@ -71,6 +82,7 @@ export class FlumePlatform implements DynamicPlatformPlugin {
       this.config.verbose,
     );
 
+    const keepDevices = new Set<string>();
     const excludeDevices = new Set(this.config.excludeDevices ?? []);
     const devices = this.flumeAPI.devices.filter((device: Device) => !excludeDevices.has(device.id));
     if (devices.length === 0) {
@@ -81,13 +93,13 @@ export class FlumePlatform implements DynamicPlatformPlugin {
     }
 
     devices.forEach((device) => {
+      keepDevices.add(device.id);
       this.initializeAccessory(device);
     });
 
     // Remove any stale accessories that don't appear in the device list
     this.accessories.forEach((accessory) => {
-      const findID = accessory.context.deviceId;
-      if (!devices.find((test) => findID === test.id)) {
+      if (!keepDevices.has(accessory.context.deviceId)) {
         this.removeAccessory(accessory);
       }
     });
@@ -96,11 +108,11 @@ export class FlumePlatform implements DynamicPlatformPlugin {
     this.log.info(strings.complete, strings.welcomeMessages[randIndex]);
   }
 
-  shutdown(): void {
+  private shutdown(): void {
     this.flumeAPI?.teardown();
   }
 
-  initializeAccessory(device: Device): void {
+  private initializeAccessory(device: Device): void {
 
     const uuid = this.api.hap.uuid.generate(device.id);
     const name = this.flumeAPI?.locationNames.get(device.locationId);
@@ -130,20 +142,9 @@ export class FlumePlatform implements DynamicPlatformPlugin {
     this.accessories.set(accessory.UUID, accessory);
   }
   
-  removeAccessory(accessory: PlatformAccessory): void {
+  private removeAccessory(accessory: PlatformAccessory): void {
     this.log.info(strings.removeDevice, accessory.context.deviceName ?? accessory.context.deviceId);
     this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_ALIAS, [accessory]);
     this.accessories.delete(accessory.UUID);
-  }
-
-  get packageVersion(): string {
-    try {
-      const __dirname = path.dirname(fileURLToPath(import.meta.url));
-      const packageJSONPath = path.join(__dirname, '../../package.json');
-      const packageJSON = JSON.parse(fs.readFileSync(packageJSONPath, { encoding: 'utf8' }));
-      return packageJSON.version;
-    } catch (error) {
-      return '0.0.0'; 
-    }
   }
 }

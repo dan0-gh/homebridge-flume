@@ -12,7 +12,7 @@ const langEn = {
   welcomeMessages: [
     'Please ★ this plugin on GitHub if you\'re finding it useful! https://github.com/mpatfield/homebridge-flume',
     'Would you like to sponsor this plugin? https://github.com/sponsors/mpatfield',
-    'This plugin currently has a 4★ rating on HOOBS! https://bit.ly/hb-flume-review',
+    'This plugin currently has a 4★ rating on HOOBS! https://plugins.hoobs.org/plugin/homebridge-flume',
     'Want to see this plugin in your own language? Please create a ticket! https://github.com/mpatfield/homebridge-flume/issues',
   ],
 

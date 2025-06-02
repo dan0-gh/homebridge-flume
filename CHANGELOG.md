@@ -2,6 +2,16 @@
 
 All notable changes to homebridge-flume will be documented in this file.
 
+## 3.1.1 (2025-06-02)
+
+### Added
+
+- Fetch device name from Flume locations api
+
+### Changed
+
+- Updated dependencies
+
 ## 3.1.0 (2025-05-28)
 
 ### Added
@@ -26,7 +36,7 @@ All notable changes to homebridge-flume will be documented in this file.
 
 ### Changed
 
-While there are no new features, this release is a major rewrite to cleanup and modernize a lot of very old code. This will make it much easier to maintain and improve this plugin going forward.
+- While there are no new features, this release is a major rewrite to cleanup and modernize a lot of very old code. This will make it much easier to maintain and improve this plugin going forward.
 
 ## 3.0.4 (2025-05-19)
 

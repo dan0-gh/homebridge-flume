@@ -1,6 +1,5 @@
 import axios, { AxiosResponse, AxiosRequestConfig, isAxiosError } from 'axios';
 import { Logger, LogLevel } from 'homebridge';
-import { jwtDecode } from 'jwt-decode';
 
 import { Auth } from './auth.js';
 import { Device } from './device.js';
@@ -35,7 +34,6 @@ const RETRY_INTERVALS = [1, 2, 5, 10, 15, 30, 60];
 
 export class FlumeAPI {
   private _auth?: Auth | null;
-  private userId?: string;
 
   readonly locationNames: Map<string, string> = new Map();
   private readonly _devices: Map<string, Device> = new Map();
@@ -183,7 +181,6 @@ export class FlumeAPI {
 
     if (this._auth) {
       this._auth.save(this.storagePath, this.clientId);
-      this.userId = (jwtDecode(this._auth.token) as Types.JwtPayload).user_id;
     }
   }
 
@@ -252,7 +249,7 @@ export class FlumeAPI {
 
     await this.refreshAuthIfNecessary();
 
-    const locationDatum = await this.do<Types.LocationData[]>(this.getLocations.name, null, true, true, URL_GET_LOCATIONS, this.userId);
+    const locationDatum = await this.do<Types.LocationData[]>(this.getLocations.name, null, true, true, URL_GET_LOCATIONS, this.auth?.userId);
 
     if (!locationDatum) {
       return false;
@@ -269,7 +266,7 @@ export class FlumeAPI {
 
     await this.refreshAuthIfNecessary();
 
-    const deviceDatum = await this.do<Types.DeviceData[]>(this.getDevices.name, null, true, true, URL_GET_DEVICES, this.userId);
+    const deviceDatum = await this.do<Types.DeviceData[]>(this.getDevices.name, null, true, true, URL_GET_DEVICES, this.auth?.userId);
     if (!deviceDatum) {
       return false;
     }
@@ -285,7 +282,7 @@ export class FlumeAPI {
   }
 
   private async getDeviceData(deviceId: string): Promise<Types.DeviceData | null> {
-    const deviceData = await this.do<Types.DeviceData>(this.getDeviceData.name, null, false, false, URL_GET_DEVICE, this.userId, deviceId);
+    const deviceData = await this.do<Types.DeviceData>(this.getDeviceData.name, null, false, false, URL_GET_DEVICE, this.auth?.userId, deviceId);
 
     if (!deviceData) {
       return null;
@@ -296,7 +293,7 @@ export class FlumeAPI {
 
   async getLeakData(deviceId: string): Promise<Types.LeakData | null> {
 
-    const leakData = await this.do<Types.LeakData>(this.getLeakData.name, null, false, false, URL_LEAK_INFO, this.userId, deviceId);
+    const leakData = await this.do<Types.LeakData>(this.getLeakData.name, null, false, false, URL_LEAK_INFO, this.auth?.userId, deviceId);
 
     if (!leakData) {
       return null;
@@ -343,7 +340,7 @@ export class FlumeAPI {
       ],
     };
 
-    const usageData = await this.do<Types.UsageData>(this.getUsageData.name, data, false, false, URL_WATER_USAGE, this.userId, deviceId);
+    const usageData = await this.do<Types.UsageData>(this.getUsageData.name, data, false, false, URL_WATER_USAGE, this.auth?.userId, deviceId);
 
     if (!usageData) {
       return null;

@@ -1,13 +1,16 @@
 import crypto from 'crypto';
 
-import { TokenData } from './types.js';
+import { JwtPayload, TokenData } from './types.js';
 
 import { safeSetItem, safeGetItem } from '../tools/storage.js';
 import { DAY, SECOND } from '../tools/time.js';
+import { jwtDecode } from 'jwt-decode';
 
 const STORAGE_AUTH_KEY = 'auth';
 
 export class Auth {
+
+  private _userId: string | undefined;
 
   constructor(
     private readonly data: TokenData,
@@ -16,6 +19,13 @@ export class Auth {
 
   get token(): string {
     return this.data.access_token;
+  }
+
+  get userId(): string | undefined {
+    if (!this._userId) {
+      this._userId = (jwtDecode(this.token) as JwtPayload).user_id;
+    }
+    return this._userId;
   }
 
   get refresh(): string {

@@ -3,19 +3,9 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', '**/*.js'],
+    ignores: ['dist/**'],
   },
   {
-    files: ['**/*.js'],
-    rules: {},
-    languageOptions: {},
-    linterOptions: {
-      noInlineConfig: false,
-    },
-    processor: null,
-  },
-  {
-    files: ['**/*.ts'],
     rules: {
       'quotes': ['error', 'single'],
       'indent': ['error', 2, { 'SwitchCase': 0 }],
@@ -35,7 +25,6 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.ts'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',

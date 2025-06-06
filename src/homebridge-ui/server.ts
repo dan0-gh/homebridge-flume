@@ -1,6 +1,6 @@
 import { HomebridgePluginUiServer } from '@homebridge/plugin-ui-utils';
 
-import { getAllTranslations, setLanguage } from '../i18n/i18n.js';
+import { getAllTranslations, setLanguage, Translation } from '../i18n/i18n.js';
 
 class FlumeConfigUiServer extends HomebridgePluginUiServer {
   constructor() {
@@ -9,8 +9,7 @@ class FlumeConfigUiServer extends HomebridgePluginUiServer {
     this.ready();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async i18n(language: string): Promise<any> {
+  async i18n(language: string): Promise<Translation> {
     setLanguage(language);
     return getAllTranslations();
   }

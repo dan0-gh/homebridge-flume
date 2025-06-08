@@ -1,12 +1,10 @@
 import crypto from 'crypto';
-import storage from 'node-persist';
 
 import { JwtPayload, TokenData } from './types.js';
 
 import { DAY, SECOND } from '../tools/time.js';
 import { jwtDecode } from 'jwt-decode';
-
-const STORAGE_AUTH_KEY = 'auth';
+import { storageGet, storageSet, STORAGE_KEY_AUTH } from '../tools/storage.js';
 
 export class Auth {
 
@@ -40,15 +38,9 @@ export class Auth {
     return crypto.createHash('sha256').update(encryptionKey).digest();
   }
 
-  private static async initStorage(persistPath: string): Promise<void> {
-    await storage.init({ dir: persistPath });
-  }
-
   async save(persistPath: string, encryptionKey: string): Promise<void> {
 
     try {
-
-      await Auth.initStorage(persistPath);
 
       const serailzed = JSON.stringify({
         data: this.data,
@@ -61,7 +53,7 @@ export class Auth {
       const encrypted = Buffer.concat([cipher.update(serailzed, 'utf8'), cipher.final()]);
       const final = iv.toString('hex') + ':' + encrypted.toString('hex');
 
-      await storage.set(STORAGE_AUTH_KEY, final);
+      await storageSet(persistPath, STORAGE_KEY_AUTH, final);
     } catch (err) {
       // Nothing
     }
@@ -71,9 +63,7 @@ export class Auth {
 
     try {
 
-      await Auth.initStorage(persistPath);
-
-      const final = await storage.get(STORAGE_AUTH_KEY);
+      const final = await storageGet(persistPath, STORAGE_KEY_AUTH);
       if (!final) {
         return null;
       }

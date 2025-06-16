@@ -69,7 +69,7 @@ export class FlumeAPI {
   ): Promise<FlumeAPI> {
     const api = new FlumeAPI(username, password, clientId, clientSecret, refreshInterval, units, persistPath, log, verbose);
 
-    api.auth = await Auth.load(persistPath, clientId);
+    api._auth = await Auth.load(persistPath, clientId);
 
     let shouldContinue = true;
     if (!api.auth) {
@@ -177,11 +177,11 @@ export class FlumeAPI {
     return this._auth ?? null;
   }
   
-  private set auth(value: Auth | null) {
-    this._auth = value;
+  private async saveTokenData(tokenData: Types.TokenData) {
+    this._auth = new Auth(tokenData);
 
     if (this._auth) {
-      this._auth.save(this.persistPath, this.clientId);
+      await this._auth.save(this.persistPath, this.clientId);
     }
   }
 
@@ -201,7 +201,7 @@ export class FlumeAPI {
       return false;
     } 
     
-    this.auth = new Auth(tokenData);
+    await this.saveTokenData(tokenData);
 
     return true;
   }
@@ -226,7 +226,7 @@ export class FlumeAPI {
       return false;
     } 
     
-    this.auth = new Auth(tokenData);
+    await this.saveTokenData(tokenData);
 
     return true;
   }

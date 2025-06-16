@@ -10,6 +10,7 @@ All notable changes to homebridge-flume will be documented in this file.
 
 ### Changed
 - Dynamic translations
+- Use node-persist for auth token caching
 
 ## 3.1.1 (2025-06-02)
 

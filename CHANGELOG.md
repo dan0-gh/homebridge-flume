@@ -6,7 +6,7 @@ Would you like to see Homebridge Flume in your language? Please consider [gettin
 
 All notable changes to homebridge-flume will be documented in this file.
 
-## 3.1.2 (2025-??-??)
+## 3.1.2 (2025-06-22)
 
 ### Changed
 - Dynamic translations

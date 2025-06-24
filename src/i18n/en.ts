@@ -2,14 +2,14 @@ const en = {
 
   config: {
 
-    continue: 'Continue %s',
-    needed: 'You will need your username, password, and Client ID/Secret from %s',
-    support: 'For help and support please visit %s',
+    continue: 'Continue %s', // (arrow emoji) →
+    needed: 'You will need your username, password, and Client ID/Secret from %s', // url
+    support: 'For help and support please visit %s', // url
     thankYou: 'Thank you for installing homebridge-flume',
 
     description: {
       clientSecret: 'Your Flume Client ID and Client Secret can be found at https://portal.flumetech.com',
-      disableDeviceLogging: 'If true then accessory status changes will not be logged',
+      disableDeviceLogging: 'If true, then accessory status changes will not be logged',
       excludeDevices: 'List of devices to exclude from HomeKit -- look for "Adding new device: [Device ID]" in the logs',
       refreshInterval: 'Number of minutes between requests to Flume for leak information',
       units: 'Volume units to use for custom characteristics',
@@ -45,7 +45,7 @@ const en = {
 
   errors: {
     badConfig: 'One or more required variables are missing from the config. Please check the documentation. https://github.com/mpatfield/homebridge-flume',
-    httpRetry: 'Request failed. Retrying in %s minutes…',
+    httpRetry: 'Request failed. Retrying in %s minutes…', // number
     noDataReceived: 'No data received from http request',
     noDevices: 'No devices were found in your account',
     noRefreshToken: 'No refresh token has been retrieved. Performing full auth instead…',

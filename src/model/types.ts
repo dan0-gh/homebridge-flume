@@ -9,13 +9,17 @@ export enum VolumeUnits {
   CUBIC_METERS = 'CUBIC_METERS',
 }
 
+export enum NotificationType {
+  USAGE_ALERT = 1,
+  BUDGET = 2,
+  GENERAL = 4,
+  HEARTBEAT = 8,
+  BATTERY = 16,
+}
+
 export interface FlumeResponse<T> extends AxiosResponse {
   data: T[];
 }
-
-export type TokenResponse = {
-  data: TokenData[];
-};
 
 export type TokenData = {
   token_type: string;
@@ -24,18 +28,15 @@ export type TokenData = {
   refresh_token: string;
 };
 
-export type LocationsResponse = {
-  data: LocationData[];
-}
-
 export type LocationData = {
   id: string;
   name: string;
 }
 
-export type DeviceResponse = {
-  data: DeviceData[];
-};
+export type NotificationData = {
+  type: NotificationType,
+  read: boolean,
+}
 
 export type DeviceData = {
   id: string;
@@ -46,17 +47,9 @@ export type DeviceData = {
   connected: boolean;
 };
 
-export type LeakResponse = {
-  data: LeakData[];
-}
-
 export type LeakData = {
   active: boolean;
 };
-
-export type UsageResponse = {
-  data: UsageData[];
-}
 
 export type UsageData = {
   today: {value: number}[];

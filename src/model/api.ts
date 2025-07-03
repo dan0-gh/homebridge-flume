@@ -9,12 +9,17 @@ import { strings } from '../i18n/i18n.js';
 
 import { MINUTE, SECOND } from '../tools/time.js';
 
-const URL_AUTH = 'https://api.flumetech.com/oauth/token';
-const URL_GET_LOCATIONS = 'https://api.flumewater.com/users/%s/locations';
-const URL_GET_DEVICES = 'https://api.flumetech.com/users/%s/devices?list_shared=true';
-const URL_GET_DEVICE = 'https://api.flumetech.com/users/%s/devices/%s';
-const URL_WATER_USAGE = 'https://api.flumetech.com/users/%s/devices/%s/query';
-const URL_LEAK_INFO = 'https://api.flumetech.com/users/%s/devices/%s/leaks/active';
+const URL_BASE = 'https://api.flumewater.com';
+const URL_USERS = `${URL_BASE}/users/%s`;
+const URL_DEVICES = `${URL_USERS}/devices`;
+const URL_DEVICE = `${URL_DEVICES}/%s`;
+
+const URL_AUTH = `${URL_BASE}/oauth/token`;
+const URL_GET_LOCATIONS = `${URL_USERS}/locations`;
+const URL_GET_DEVICES = `${URL_DEVICES}?list_shared=true`;
+const URL_GET_NOTIFICATIONS = `${URL_USERS}/notifications?device_id=%s`;
+const URL_WATER_USAGE = `${URL_DEVICE}/query`;
+const URL_LEAK_INFO = `${URL_DEVICE}/leaks/active`;
 
 const HTTP_TIMEOUT = 10 * SECOND;
 
@@ -263,6 +268,28 @@ export class FlumeAPI {
     return true;
   }
 
+  private async getUnreadNotifications(deviceId: string): Promise<Set<Types.NotificationType> | null> {
+
+    await this.refreshAuthIfNecessary();
+
+    const notificationDatum =
+      await this.do<Types.NotificationData[]>(this.getUnreadNotifications.name, null, true, true, URL_GET_NOTIFICATIONS, this.auth?.userId, deviceId);
+
+    if (!notificationDatum) {
+      return null;
+    }
+
+    const response = new Set<Types.NotificationType>();
+
+    notificationDatum.forEach(notification => {
+      if (!notification.read) {
+        response.add(notification.type);
+      }
+    });
+
+    return response;
+  }
+
   private async getDevices(): Promise<boolean> {
 
     await this.refreshAuthIfNecessary();
@@ -283,7 +310,7 @@ export class FlumeAPI {
   }
 
   private async getDeviceData(deviceId: string): Promise<Types.DeviceData | null> {
-    const deviceData = await this.do<Types.DeviceData>(this.getDeviceData.name, null, false, false, URL_GET_DEVICE, this.auth?.userId, deviceId);
+    const deviceData = await this.do<Types.DeviceData>(this.getDeviceData.name, null, false, false, URL_DEVICE, this.auth?.userId, deviceId);
 
     if (!deviceData) {
       return null;
@@ -358,18 +385,16 @@ export class FlumeAPI {
 
       const id = device.id;
 
-      let deviceData: Types.DeviceData | null = null;
       let usageData: Types.UsageData | null = null;
 
       if (Date.now() - this.lastFullRefresh > FULL_REFRESH_INTERVAL) {
-        deviceData = await this.getDeviceData(id);
         usageData = await this.getUsageData(id);
         this.lastFullRefresh = Date.now();
       }
 
-      const leakData = await this.getLeakData(id);
+      const unreadNotifications = await this.getUnreadNotifications(id);
 
-      device.update(deviceData, leakData, usageData);
+      device.update(unreadNotifications, usageData);
     };
   }
 

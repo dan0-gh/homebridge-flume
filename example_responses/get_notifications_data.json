@@ -1,0 +1,33 @@
+{
+   "success":true,
+   "code":602,
+   "message":"Request OK",
+   "http_code":200,
+   "http_message":"OK",
+   "detailed":null,
+   "data":[
+      {
+         "id":12345,
+         "device_id":"1234567890",
+         "user_id":12345,
+         "type":1,
+         "message":"Test triggered at Home. Water has been running for 4 minutes averaging 0.2 gallons every minute.",
+         "created_datetime":"2025-07-01T21:03:00.000Z",
+         "title":"Usage Alert!",
+         "read":false,
+         "extra":{
+            "advanced_low_flow":false,
+            "query":{
+               "request_id":"SYSTEM_TRIGGERED_USAGE_ALERT",
+               "until_datetime":"2025-07-01 14:03:00",
+               "tz":"America/Los_Angeles",
+               "bucket":"MIN",
+               "since_datetime":"2025-07-01 13:59:00"
+            },
+            "event_rule_name":"Test"
+         }
+      }
+   ],
+   "count":1,
+   "pagination":null
+}

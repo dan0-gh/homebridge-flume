@@ -6,6 +6,14 @@ Would you like to see Homebridge Flume in your language? Please consider [gettin
 
 All notable changes to homebridge-flume will be documented in this file.
 
+# 3.1.4 (2025-07-16)
+
+### Fixed
+- Incorrectly logging an error when there are no notifications
+
+### Changed
+- Updated developer dependencies
+
 ## 3.1.3 (2025-07-14)
 
 ### Added

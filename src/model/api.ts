@@ -1,5 +1,5 @@
 import axios, { AxiosResponse, AxiosRequestConfig, isAxiosError } from 'axios';
-import { Logger, LogLevel } from 'homebridge';
+import { Logger, LogLevel, PrimitiveTypes } from 'homebridge';
 
 import { Auth } from './auth.js';
 import { Device } from './device.js';
@@ -134,7 +134,7 @@ export class FlumeAPI {
       }
 
       if (!res.data || !res.data.data || !res.data.data[0]) {
-        this.logHTTP(LogLevel.DEBUG, caller, JSON.stringify(res.data));
+        this.logIfVerbose(caller, JSON.stringify(res.data));
         throw new Error(strings.errors.noDataReceived);
       }
 
@@ -170,7 +170,7 @@ export class FlumeAPI {
       return null;
     }
     
-    this.log.warn(strings.errors.httpRetry, RETRY_INTERVALS[this.retryIndex]);
+    this.logHTTP(LogLevel.WARN, caller, strings.errors.httpRetry, RETRY_INTERVALS[this.retryIndex]);
     await new Promise(resolve => setTimeout(resolve, RETRY_INTERVALS[this.retryIndex] * MINUTE));
 
     this.retryIndex += 1;
@@ -214,7 +214,7 @@ export class FlumeAPI {
   private async authRefresh(): Promise<boolean> {
 
     if (!this.auth?.refresh) {
-      this.logHTTP(LogLevel.DEBUG, this.authRefresh.name, strings.errors.noRefreshToken);
+      this.logIfVerbose(this.authRefresh.name, strings.errors.noRefreshToken);
       return await this.authenticate();
     }
 
@@ -398,8 +398,8 @@ export class FlumeAPI {
     };
   }
 
-  private logHTTP(level: LogLevel, caller: string, message: string) {
-    this.log.log(level, '[HTTP %s()] %s', caller, message);
+  private logHTTP(level: LogLevel, caller: string, message: string, ...parameters: (PrimitiveTypes)[]) {
+    this.log.log(level, '[HTTP %s()] %s', caller, message, parameters);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

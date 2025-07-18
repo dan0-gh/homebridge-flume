@@ -228,7 +228,7 @@ export class FlumeAPI {
     const tokenData = await this.do<Types.TokenData>(this.authRefresh.name, data, false, true, URL_AUTH);
 
     if (!tokenData) {
-      return false;
+      return await this.authenticate();
     } 
     
     await this.saveTokenData(tokenData);
@@ -399,7 +399,7 @@ export class FlumeAPI {
   }
 
   private logHTTP(level: LogLevel, caller: string, message: string, ...parameters: (PrimitiveTypes)[]) {
-    this.log.log(level, '[HTTP %s()] %s', caller, message, parameters);
+    this.log.log(level, '[HTTP %s()] %s', caller, message, ...parameters);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -50,31 +50,19 @@ export class FlumeAPI {
   private lastFullRefresh: number = 0;
 
   private constructor(
-    private readonly username: string,
-    private readonly password: string,
-    private readonly clientId: string,
-    private readonly clientSecret: string,
-    private readonly refreshInterval: number,
-    private readonly units: Types.VolumeUnits,
+    private readonly config: Types.FlumeConfig,
     private persistPath: string,
     private readonly log: Logger,
-    private readonly verbose: boolean,
   ) {}
 
   static async connect(
-    username: string,
-    password: string,
-    clientId: string,
-    clientSecret: string,
-    refreshInterval: number,
-    units: Types.VolumeUnits,
+    config: Types.FlumeConfig,
     persistPath: string,
     log: Logger,
-    verbose: boolean,
   ): Promise<FlumeAPI> {
-    const api = new FlumeAPI(username, password, clientId, clientSecret, refreshInterval, units, persistPath, log, verbose);
+    const api = new FlumeAPI(config, persistPath, log);
 
-    api._auth = await Auth.load(persistPath, clientId);
+    api._auth = await Auth.load(persistPath, config.clientId);
 
     let shouldContinue = true;
     if (!api.auth) {
@@ -82,6 +70,7 @@ export class FlumeAPI {
     }
 
     if (shouldContinue) {
+      await api.refreshAuthIfNecessary();
       await api.getLocations();
       await api.getDevices();
       await api.synchronizeData();    
@@ -186,7 +175,7 @@ export class FlumeAPI {
     this._auth = new Auth(tokenData);
 
     if (this._auth) {
-      await this._auth.save(this.persistPath, this.clientId);
+      await this._auth.save(this.persistPath, this.config.clientId);
     }
   }
 
@@ -194,10 +183,10 @@ export class FlumeAPI {
 
     const data = {
       grant_type: 'password',
-      client_id: this.clientId,
-      client_secret: this.clientSecret,
-      username: this.username,
-      password: this.password,
+      client_id: this.config.clientId,
+      client_secret: this.config.clientSecret,
+      username: this.config.username,
+      password: this.config.password,
     };
  
     const tokenData = await this.do<Types.TokenData>(this.authenticate.name, data, false, true, URL_AUTH);
@@ -220,8 +209,8 @@ export class FlumeAPI {
 
     const data = {
       grant_type: 'refresh_token',
-      client_id: this.clientId,
-      client_secret: this.clientSecret,
+      client_id: this.config.clientId,
+      client_secret: this.config.clientSecret,
       refresh_token: this.auth.refresh,
     };
     
@@ -246,14 +235,13 @@ export class FlumeAPI {
     this.teardown();
 
     // Note the Flume API has a limit of 120 requests per hour
-    this.syncTimer = setInterval(() => {
-      this.synchronizeData();
-    }, MINUTE * this.refreshInterval);
+    this.syncTimer = setInterval(async () => {
+      await this.refreshAuthIfNecessary();
+      await this.synchronizeData();
+    }, MINUTE * this.config.refreshInterval);
   }
 
   private async getLocations(): Promise<boolean> {
-
-    await this.refreshAuthIfNecessary();
 
     const locationDatum = await this.do<Types.LocationData[]>(this.getLocations.name, null, true, true, URL_GET_LOCATIONS, this.auth?.userId);
 
@@ -269,8 +257,6 @@ export class FlumeAPI {
   }
 
   private async getUnreadNotifications(deviceId: string): Promise<Set<Types.NotificationType> | null> {
-
-    await this.refreshAuthIfNecessary();
 
     const notificationDatum =
       await this.do<Types.NotificationData[]>(this.getUnreadNotifications.name, null, true, true, URL_GET_NOTIFICATIONS, this.auth?.userId, deviceId);
@@ -291,8 +277,6 @@ export class FlumeAPI {
   }
 
   private async getDevices(): Promise<boolean> {
-
-    await this.refreshAuthIfNecessary();
 
     const deviceDatum = await this.do<Types.DeviceData[]>(this.getDevices.name, null, true, true, URL_GET_DEVICES, this.auth?.userId);
     if (!deviceDatum) {
@@ -319,7 +303,7 @@ export class FlumeAPI {
     return deviceData;
   }
 
-  async getLeakData(deviceId: string): Promise<Types.LeakData | null> {
+  private async getLeakData(deviceId: string): Promise<Types.LeakData | null> {
 
     const leakData = await this.do<Types.LeakData>(this.getLeakData.name, null, false, false, URL_LEAK_INFO, this.auth?.userId, deviceId);
 
@@ -348,14 +332,14 @@ export class FlumeAPI {
           bucket: 'DAY',
           since_datetime: startOfToday,
           operation: 'SUM',
-          units: this.units,
+          units: this.config.units ?? Types.VolumeUnits.GALLONS,
         },
         {
           request_id: 'month',
           bucket: 'MON',
           since_datetime: startOfCurrMonth,
           operation: 'SUM',
-          units: this.units,
+          units: this.config.units ?? Types.VolumeUnits.GALLONS,
         },
         {
           request_id: 'lastMonth',
@@ -363,7 +347,7 @@ export class FlumeAPI {
           since_datetime: startOfLastMonth,
           until_datetime: startOfCurrMonth,
           operation: 'SUM',
-          units: this.units,
+          units: this.config.units ?? Types.VolumeUnits.GALLONS,
         },
       ],
     };
@@ -379,22 +363,27 @@ export class FlumeAPI {
 
   private async synchronizeData(): Promise<void> {
 
-    await this.refreshAuthIfNecessary();
-
     for (const device of this._devices.values()) {
 
       const id = device.id;
 
+      let deviceData: Types.DeviceData | null = null;
       let usageData: Types.UsageData | null = null;
 
       if (Date.now() - this.lastFullRefresh > FULL_REFRESH_INTERVAL) {
+        deviceData = await this.getDeviceData(id);
         usageData = await this.getUsageData(id);
         this.lastFullRefresh = Date.now();
       }
 
-      const unreadNotifications = await this.getUnreadNotifications(id);
+      const leakData: Types.LeakData | null = await this.getLeakData(id);
 
-      device.update(unreadNotifications, usageData);
+      let unreadNotifications: Set<Types.NotificationType> | null = null;
+      if (this.config.useNotifications) {
+        unreadNotifications = await this.getUnreadNotifications(id);
+      }
+
+      device.update(leakData, unreadNotifications, deviceData, usageData);
     };
   }
 
@@ -405,7 +394,7 @@ export class FlumeAPI {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private logIfVerbose(caller: string, data: any) {
 
-    if (!this.verbose) {
+    if (!this.config.verbose) {
       return;
     }
 

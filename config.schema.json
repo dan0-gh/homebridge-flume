@@ -43,6 +43,11 @@
         "minimum": 1,
         "required": true
       },
+      "useNotifications": {
+        "type": "boolean",
+        "title": "${config.title.useNotifications}",
+        "description": "${config.description.useNotifications}"
+      },
       "units": {
         "type": "string",
         "title": "${config.title.units}",
@@ -87,6 +92,7 @@
         "clientId",
         "clientSecret",
         "refreshInterval",
+        "useNotifications",
         "units",
         "disableDeviceLogging",
         "verbose",

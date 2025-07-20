@@ -13,6 +13,7 @@ const en = {
       excludeDevices: 'Look for "Adding new device: [Device ID]" in the logs',
       refreshInterval: 'Number of minutes between requests to Flume for leak information',
       units: 'Volume units to use for custom characteristics',
+      useNotifications: 'If true, an unread usage alert notification will be considered a leak',
       verbose: 'Enable additional debug logging',
     },
 
@@ -32,6 +33,7 @@ const en = {
       password: 'Flume Password',
       refreshInterval: 'Refresh Interval',
       units: 'Units',
+      useNotifications: 'Include Usage Alerts',
       username: 'Flume Username',
       verbose: 'Verbose',
     },

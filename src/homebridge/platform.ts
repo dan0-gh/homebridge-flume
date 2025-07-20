@@ -1,4 +1,4 @@
-import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig } from 'homebridge';
+import { API, DynamicPlatformPlugin, Logger, PlatformAccessory } from 'homebridge';
 
 import { FlumeAccessory } from './accessory.js';
 import { PLATFORM_ALIAS, PLUGIN_NAME, PROJECT_HOMEPAGE } from './settings.js';
@@ -7,7 +7,7 @@ import { setLanguage, strings } from '../i18n/i18n.js';
 
 import { FlumeAPI } from '../model/api.js';
 import { Device } from '../model/device.js';
-import { VolumeUnits } from '../model/types.js';
+import { FlumeConfig, VolumeUnits } from '../model/types.js';
 
 import getVersion from '../tools/version.js';
 
@@ -19,7 +19,7 @@ export class FlumePlatform implements DynamicPlatformPlugin {
 
   constructor(
     readonly log: Logger,
-    readonly config: PlatformConfig,
+    readonly config: FlumeConfig,
     readonly api: API,
   ) {
 
@@ -54,15 +54,9 @@ export class FlumePlatform implements DynamicPlatformPlugin {
     }
 
     this.flumeAPI = await FlumeAPI.connect(
-      this.config.username,
-      this.config.password,
-      this.config.clientId,
-      this.config.clientSecret,
-      this.config.refreshInterval,
-      this.config.units ?? VolumeUnits.GALLONS,
+      this.config,
       this.api.user.persistPath(),
       this.log,
-      this.config.verbose,
     );
 
     const keepDevices = new Set<string>();

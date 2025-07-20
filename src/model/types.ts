@@ -1,4 +1,5 @@
 import { AxiosResponse } from 'axios';
+import { PlatformConfig } from 'homebridge';
 
 export const SENSITIVE_KEYS = ['access_token', 'address', 'address_2', 'bridge_id', 'id', 'refresh_token', 'user_id'];
 
@@ -19,6 +20,19 @@ export enum NotificationType {
 
 export interface FlumeResponse<T> extends AxiosResponse {
   data: T[];
+}
+
+export type FlumeConfig = PlatformConfig & {
+  username: string,
+  password: string,
+  clientId: string,
+  clientSecret: string,
+  refreshInterval: number,
+  useNotifications: boolean,
+  units?: VolumeUnits,
+  excludeDevices?: string[],
+  disableDeviceLogging: boolean,
+  verbose: boolean,
 }
 
 export type TokenData = {

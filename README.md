@@ -57,6 +57,7 @@ Using the Homebridge Config UI is the easiest way to set up this plugin. However
 - `password` - (Required) Flume password
 - `clientId`/`clientSecret` - (Required) Flume Client ID, found at [https://portal.flumetech.com](https://portal.flumetech.com)
 - `refreshInterval` - (Required) number of minutes between updates; must be `1` or more
+- `useNotifications` - (Optional) if true, unread usage alerts will cause leak detection notifications
 - `units` - (Required) the type of units to use for custom characteristics
 - `disableDeviceLogging` - (Optional) if true, then accessory status changes will not be logged
 - `verbose` - (Optional) if true, there will be additional logging for debugging purposes

@@ -1,4 +1,4 @@
-import { DeviceData, NotificationType, UsageData } from './types.js';
+import { DeviceData, LeakData, NotificationType, UsageData } from './types.js';
 
 const BATTERY_LEVEL_LOW = 'low';
 
@@ -31,12 +31,19 @@ export class Device {
     this._onUpdateCallback = callback;
   }
 
-  update(unreadNotifications: Set<NotificationType> | null, usageData: UsageData | null) {
+  update(leakData: LeakData | null, unreadNotifications: Set<NotificationType> | null, deviceData: DeviceData | null, usageData: UsageData | null) {
 
-    if (unreadNotifications) {
-      this.isBatteryLow = unreadNotifications.has(NotificationType.BATTERY);
-      this.isDisconnected = unreadNotifications.has(NotificationType.HEARTBEAT);
-      this.isLeakDetected = unreadNotifications.has(NotificationType.USAGE_ALERT) || unreadNotifications.has(NotificationType.BUDGET);
+    if (leakData) {
+      this.isLeakDetected = leakData.active;
+
+      if (unreadNotifications) {
+        this.isLeakDetected = unreadNotifications.has(NotificationType.USAGE_ALERT);
+      }
+    }
+
+    if (deviceData) {
+      this.isBatteryLow = deviceData.battery_level === BATTERY_LEVEL_LOW;
+      this.isDisconnected = !deviceData.connected;
     }
 
     if (usageData) {

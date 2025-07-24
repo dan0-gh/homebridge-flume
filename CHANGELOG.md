@@ -6,6 +6,18 @@ Would you like to see Homebridge Flume in your language? Please consider [gettin
 
 All notable changes to homebridge-flume will be documented in this file.
 
+# 3.1.5 (2025-07-24)
+
+### Fixed
+- Try full authentication when refresh fails ([#128](https://github.com/mpatfield/homebridge-flume/issues/128))
+
+### Changed
+- Reverted to using `leaks/active` api for leak detection ([#129](https://github.com/mpatfield/homebridge-flume/issues/129))
+- Updated dependencies
+
+### Added
+- Added `useNotifications` config option to include custom usage alerts in leak detection
+
 # 3.1.4 (2025-07-16)
 
 ### Fixed

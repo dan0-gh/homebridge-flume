@@ -35,10 +35,8 @@ export class Device {
 
     if (leakData) {
       this.isLeakDetected = leakData.active;
-
-      if (unreadNotifications) {
-        this.isLeakDetected = unreadNotifications.has(NotificationType.USAGE_ALERT);
-      }
+    } else if (unreadNotifications) {
+      this.isLeakDetected = unreadNotifications.has(NotificationType.USAGE_ALERT);
     }
 
     if (deviceData) {

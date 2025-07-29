@@ -1,10 +1,16 @@
-### HELP NEEDED!
-
-Would you like to see Homebridge Flume in your language? Please consider [getting involved](https://github.com/mpatfield/homebridge-flume/issues/107).
-
 # Change Log
 
 All notable changes to homebridge-flume will be documented in this file.
+
+# 3.1.6 (2025-07-29)
+
+### HELP NEEDED!
+Would you like to see Homebridge Flume in your language? Please consider [getting involved](https://github.com/mpatfield/homebridge-flume/issues/107).
+
+### Changed
+- Behavior of `useNotifications` option has changed slightly to use only notifications as indications of leaks 
+  - Setting name has changed to "Use Unread Usage Notifications" in the config UI
+- Updated dependencies
 
 # 3.1.5 (2025-07-24)
 

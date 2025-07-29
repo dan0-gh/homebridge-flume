@@ -33,7 +33,7 @@ const en = {
       password: 'Flume Password',
       refreshInterval: 'Refresh Interval',
       units: 'Units',
-      useNotifications: 'Include Usage Alerts',
+      useNotifications: 'Use Unread Usage Notifications',
       username: 'Flume Username',
       verbose: 'Verbose',
     },

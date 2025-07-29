@@ -376,11 +376,13 @@ export class FlumeAPI {
         this.lastFullRefresh = Date.now();
       }
 
-      const leakData: Types.LeakData | null = await this.getLeakData(id);
-
+      let leakData: Types.LeakData | null = null;
       let unreadNotifications: Set<Types.NotificationType> | null = null;
+
       if (this.config.useNotifications) {
         unreadNotifications = await this.getUnreadNotifications(id);
+      } else {
+        leakData = await this.getLeakData(id);
       }
 
       device.update(leakData, unreadNotifications, deviceData, usageData);

@@ -1,5 +1,5 @@
 <p align="center">
-<img src="https://github.com/mpatfield/homebridge-flume/blob/latest/img/banner.png?raw=true" width="600">
+<img src="https://raw.githubusercontent.com/mpatfield/homebridge-flume/refs/heads/latest/img/banner.png" width="600">
 </p>
 
 <span align="center">
@@ -23,11 +23,11 @@ This plugin is independently developed and is not in any way affiliated with or 
 
 Once you have completed [Configuration](https://github.com/mpatfield/homebridge-flume#configuration) you will see a new leak sensor pop up in your Home app. If the sensor detetcs a leak, you will receive a HomeKit notification and can setup automations to react to state changes.
 
-<img src="https://github.com/mpatfield/homebridge-flume/blob/latest/img/screenshot_1.png?raw=true"> <img src="https://github.com/mpatfield/homebridge-flume/blob/latest/img/screenshot_2.png?raw=true">
+<img src="https://raw.githubusercontent.com/mpatfield/homebridge-flume/refs/heads/latest/img/screenshot_1.png"> <img src="https://raw.githubusercontent.com/mpatfield/homebridge-flume/refs/heads/latest/img/screenshot_2.png">
 
 If you use a more advanced HomeKit app like [Eve](https://apps.apple.com/us/app/eve-for-matter-homekit/id917695792) or [Controller for Homekit](https://apps.apple.com/us/app/controller-for-homekit/id1198176727), you will see some additional information about your water use. Unfortunately, Apple currently doesn't offer a way to display this in the Home app.
 
-<img src="https://github.com/mpatfield/homebridge-flume/blob/latest/img/screenshot_3.png?raw=true">
+<img src="https://raw.githubusercontent.com/mpatfield/homebridge-flume/refs/heads/latest/img/screenshot_3.png">
 
 ## Configuration
 

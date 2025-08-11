@@ -2,10 +2,18 @@
 
 All notable changes to homebridge-flume will be documented in this file.
 
-# 3.1.6 (2025-07-29)
+# 3.1.7 (2025-08-11)
 
 ### HELP NEEDED!
 Would you like to see Homebridge Flume in your language? Please consider [getting involved](https://github.com/mpatfield/homebridge-flume/issues/107).
+
+### Fixed
+- Broken header image in config UI
+
+### Changed
+- Updated dependencies
+
+# 3.1.6 (2025-07-29)
 
 ### Changed
 - Behavior of `useNotifications` option has changed slightly to use only notifications as indications of leaks 

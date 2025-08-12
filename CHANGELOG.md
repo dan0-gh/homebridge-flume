@@ -4,7 +4,7 @@ All notable changes to homebridge-flume will be documented in this file.
 
 # 3.1.7 (2025-08-11)
 
-### HELP NEEDED!
+### HELP NEEDED! (no coding experience required)
 Would you like to see Homebridge Flume in your language? Please consider [getting involved](https://github.com/mpatfield/homebridge-flume/issues/107).
 
 ### Fixed

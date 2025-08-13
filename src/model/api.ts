@@ -285,7 +285,7 @@ export class FlumeAPI {
 
     deviceDatum.forEach(deviceData => {
       if (deviceData.bridge_id) {
-        const device = new Device(deviceData);
+        const device = new Device(deviceData, this.config.flowThreshold);
         this._devices.set(device.id, device);
       }
     });
@@ -383,6 +383,11 @@ export class FlumeAPI {
         unreadNotifications = await this.getUnreadNotifications(id);
       } else {
         leakData = await this.getLeakData(id);
+      }
+
+      // If flow motion sensor is enabled, fetch usage data each sync to compute flow state
+      if (this.config.flowMotionSensor && !usageData) {
+        usageData = await this.getUsageData(id);
       }
 
       device.update(leakData, unreadNotifications, deviceData, usageData);

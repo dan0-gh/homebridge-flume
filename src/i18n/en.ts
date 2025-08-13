@@ -15,6 +15,8 @@ const en = {
       units: 'Volume units to use for custom characteristics',
       useNotifications: 'If true, an unread usage alert notification will be considered a leak',
       verbose: 'Enable additional debug logging',
+      flowMotionSensor: 'Adds a Motion Sensor accessory that is active while water is flowing',
+      flowThreshold: 'Minimum change in usage between polls to consider water flowing (0 to trigger on any increase)'
     },
 
     enumNames: {
@@ -36,6 +38,8 @@ const en = {
       useNotifications: 'Use Unread Usage Notifications',
       username: 'Flume Username',
       verbose: 'Verbose',
+      flowMotionSensor: 'Add Motion Sensor for Flowing Water',
+      flowThreshold: 'Flow Threshold'
     },
   },
   
@@ -78,6 +82,8 @@ const en = {
     connectionNormal: 'Connection restored',
     leakDetected: 'Leak detected!',
     leakNotDetected: 'No leaks detected',
+    flowActive: 'Water is flowing',
+    flowInactive: 'Water is not flowing'
   },
 };
 

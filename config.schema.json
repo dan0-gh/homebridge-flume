@@ -48,6 +48,20 @@
         "title": "${config.title.useNotifications}",
         "description": "${config.description.useNotifications}"
       },
+      "flowMotionSensor": {
+        "type": "boolean",
+        "title": "${config.title.flowMotionSensor}",
+        "description": "${config.description.flowMotionSensor}",
+        "required": false
+      },
+      "flowThreshold": {
+        "type": "number",
+        "title": "${config.title.flowThreshold}",
+        "description": "${config.description.flowThreshold}",
+        "minimum": 0,
+        "default": 0,
+        "required": false
+      },
       "units": {
         "type": "string",
         "title": "${config.title.units}",
@@ -93,6 +107,11 @@
         "clientSecret",
         "refreshInterval",
         "useNotifications",
+        "flowMotionSensor",
+        {
+          "key": "flowThreshold",
+          "type": "number"
+        },
         "units",
         "disableDeviceLogging",
         "verbose",

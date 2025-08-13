@@ -18,6 +18,8 @@ const overrides = {
       refreshInterval: 'Anzahl der Minuten zwischen den Anfragen an Flume nach Leckinformationen',
       units: 'Volumeneinheiten, die für benutzerdefinierte Merkmale verwendet werden',
       verbose: 'Zusätzliche Debug-Protokollierung aktivieren',
+      flowMotionSensor: 'Fügt einen Bewegungssensor hinzu, der aktiv ist, während Wasser fließt',
+      flowThreshold: 'Mindeständerung des Verbrauchs zwischen Abfragen, um fließendes Wasser zu erkennen (0 für jede Zunahme)'
     },
 
     enumNames: {
@@ -38,6 +40,8 @@ const overrides = {
       units: 'Einheiten',
       username: 'Flume-Benutzername',
       verbose: 'Verbose',
+      flowMotionSensor: 'Bewegungssensor für fließendes Wasser hinzufügen',
+      flowThreshold: 'Schwellenwert für Fluss'
     },
   },
 
@@ -79,6 +83,8 @@ const overrides = {
     connectionNormal: 'Verbindung wiederhergestellt',
     leakDetected: 'Leck erkannt!',
     leakNotDetected: 'Keine Lecks festgestellt',
+    flowActive: 'Wasser fließt',
+    flowInactive: 'Wasser fließt nicht'
   },
 };
 

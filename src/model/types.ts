@@ -33,6 +33,8 @@ export type FlumeConfig = PlatformConfig & {
   excludeDevices?: string[],
   disableDeviceLogging: boolean,
   verbose: boolean,
+  flowMotionSensor?: boolean,
+  flowThreshold?: number,
 }
 
 export type TokenData = {

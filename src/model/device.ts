@@ -12,6 +12,8 @@ export class Device {
   isDisconnected: boolean;
 
   isLeakDetected: boolean = false;
+  isFlowing: boolean = false;
+  private flowThreshold: number = 0;
   
   usageToday: number = 0;
   usageMonth: number = 0;
@@ -19,12 +21,13 @@ export class Device {
 
   private _onUpdateCallback: ((id: string) => void) | null = null;
 
-  constructor(data: DeviceData) {
+  constructor(data: DeviceData, flowThreshold?: number) {
     this.id = data.id;
     this.locationId = data.location_id;
     this.productName = data.product;
     this.isDisconnected = !data.connected;
     this.isBatteryLow = data.battery_level === BATTERY_LEVEL_LOW;
+    this.flowThreshold = Math.max(0, flowThreshold ?? 0);
   }
 
   setOnUpdateCallback(callback: (serialNumber: string) => void): void {
@@ -45,9 +48,13 @@ export class Device {
     }
 
     if (usageData) {
+      const previousUsageToday = this.usageToday;
       this.usageToday = usageData.today[0]?.value || 0;
       this.usageMonth = usageData.month[0]?.value || 0;
       this.usageLastMonth = usageData.lastMonth[0]?.value || 0;
+
+      const usageIncrease = this.usageToday - previousUsageToday;
+      this.isFlowing = usageIncrease > this.flowThreshold;
     }
 
     if (this._onUpdateCallback) {

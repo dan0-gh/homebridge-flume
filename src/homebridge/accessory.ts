@@ -24,14 +24,17 @@ export class FlumeAccessory {
   private readonly Service: typeof Service;
 
   private readonly leakService: Service;
+  private readonly motionService?: Service;
 
   private isLeakDetected: boolean = false;
   private isBatteryLow: boolean = false;
   private isDisconnected: boolean = true;
+  private isFlowing: boolean = false;
 
   private readonly charLeakDetected: typeof Characteristic.LeakDetected;
   private readonly charStatusLowBattery: typeof Characteristic.StatusLowBattery;
   private readonly charStatusFault: typeof Characteristic.StatusFault;
+  private readonly charMotionDetected: typeof Characteristic.MotionDetected;
 
   private readonly todayUsageChar: Characteristic;
   private readonly monthUsageChar: Characteristic;
@@ -61,13 +64,23 @@ export class FlumeAccessory {
     this.charLeakDetected = this.Characteristic.LeakDetected;
     this.charStatusLowBattery = this.Characteristic.StatusLowBattery;
     this.charStatusFault = this.Characteristic.StatusFault;
+    this.charMotionDetected = this.Characteristic.MotionDetected;
 
     this.leakService = this.accessory.getService(this.HAP.Service.LeakSensor)
       || this.accessory.addService(this.HAP.Service.LeakSensor);
 
+    // Add optional MotionSensor service if configured on the platform
+    if (this.platform.config.flowMotionSensor) {
+      this.motionService = this.accessory.getService(this.HAP.Service.MotionSensor)
+        || this.accessory.addService(this.HAP.Service.MotionSensor);
+    }
+
     this.isLeakDetected = this.leakService.getCharacteristic(this.charLeakDetected).value === this.charLeakDetected.LEAK_DETECTED;
     this.isBatteryLow = this.leakService.getCharacteristic(this.charStatusLowBattery).value === this.charStatusLowBattery.BATTERY_LEVEL_LOW;
     this.isDisconnected = this.leakService.getCharacteristic(this.charStatusFault).value === this.charStatusFault.GENERAL_FAULT;
+    if (this.motionService) {
+      this.isFlowing = this.motionService.getCharacteristic(this.charMotionDetected).value === true;
+    }
 
     this.clearCustomCharacteristics();
 
@@ -110,6 +123,12 @@ export class FlumeAccessory {
         this.isDisconnected ? strings.status.connectionFault : strings.status.connectionNormal);
     }
 
+    if (this.motionService && this.device.isFlowing !== this.isFlowing) {
+      this.isFlowing = this.device.isFlowing;
+      this.motionService.updateCharacteristic(this.charMotionDetected, this.isFlowing);
+      this.logState(this.isFlowing ? LogLevel.INFO : LogLevel.INFO, this.isFlowing ? strings.status.flowActive : strings.status.flowInactive);
+    }
+
     this.todayUsageChar.updateValue(this.device.usageToday);
     this.monthUsageChar.updateValue(this.device.usageMonth);
     this.lastMonthUsageChar.updateValue(this.device.usageLastMonth);
@@ -131,6 +150,9 @@ export class FlumeAccessory {
       this.charStatusLowBattery.UUID,
       this.charStatusFault.UUID,
     ]);
+    if (this.motionService) {
+      allowedUUIDs.add(this.charMotionDetected.UUID);
+    }
 
     const charsToRemove = this.leakService.characteristics.filter(char => !allowedUUIDs.has(char.UUID));
     charsToRemove.forEach(char => {

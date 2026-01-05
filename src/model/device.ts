@@ -18,6 +18,7 @@ export class Device {
   usageToday: number = 0;
   usageMonth: number = 0;
   usageLastMonth: number = 0;
+  currentFlowRate: number = 0; // units per minute (gallons/min, liters/min, etc.)
 
   private _onUpdateCallback: ((id: string) => void) | null = null;
 
@@ -55,6 +56,21 @@ export class Device {
 
       const usageIncrease = this.usageToday - previousUsageToday;
       this.isFlowing = usageIncrease > this.flowThreshold;
+
+      // Calculate current flow rate from minute-level data
+      if (usageData.flowRate && usageData.flowRate.length > 0) {
+        // Get the most recent minute's usage as the current flow rate
+        // The flowRate array contains per-minute usage values
+        const recentMinutes = usageData.flowRate;
+        if (recentMinutes.length > 0) {
+          // Use the most recent minute's value, or average the last few minutes
+          // Taking the last value gives the most current reading
+          const lastMinute = recentMinutes[recentMinutes.length - 1];
+          this.currentFlowRate = lastMinute?.value || 0;
+        } else {
+          this.currentFlowRate = 0;
+        }
+      }
     }
 
     if (this._onUpdateCallback) {

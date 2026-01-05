@@ -35,6 +35,7 @@ export type FlumeConfig = PlatformConfig & {
   verbose: boolean,
   flowMotionSensor?: boolean,
   flowThreshold?: number,
+  flowRateSensor?: boolean,
 }
 
 export type TokenData = {
@@ -71,6 +72,7 @@ export type UsageData = {
   today: {value: number}[];
   month: {value: number}[];
   lastMonth: {value: number}[];
+  flowRate?: {datetime: string, value: number}[];
 };
 
 export type JwtPayload = {

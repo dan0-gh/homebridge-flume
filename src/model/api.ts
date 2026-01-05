@@ -314,7 +314,7 @@ export class FlumeAPI {
     return leakData;
   }
 
-  private async getUsageData(deviceId: string): Promise<Types.UsageData | null> {
+  private async getUsageData(deviceId: string, includeFlowRate: boolean = false): Promise<Types.UsageData | null> {
 
     // Generate dates for the query data
     const now = new Date();
@@ -325,32 +325,49 @@ export class FlumeAPI {
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const startOfLastMonth = `${lastMonth.getFullYear()}-${pad(lastMonth.getMonth() + 1)}-01 00:00:00`;
 
-    const data = {
-      queries: [
-        {
-          request_id: 'today',
-          bucket: 'DAY',
-          since_datetime: startOfToday,
-          operation: 'SUM',
-          units: this.config.units ?? Types.VolumeUnits.GALLONS,
-        },
-        {
-          request_id: 'month',
-          bucket: 'MON',
-          since_datetime: startOfCurrMonth,
-          operation: 'SUM',
-          units: this.config.units ?? Types.VolumeUnits.GALLONS,
-        },
-        {
-          request_id: 'lastMonth',
-          bucket: 'MON',
-          since_datetime: startOfLastMonth,
-          until_datetime: startOfCurrMonth,
-          operation: 'SUM',
-          units: this.config.units ?? Types.VolumeUnits.GALLONS,
-        },
-      ],
-    };
+    // For flow rate, query the last 5 minutes of minute-level data
+    const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+    const flowRateSince = `${fiveMinutesAgo.getFullYear()}-${pad(fiveMinutesAgo.getMonth() + 1)}-${pad(fiveMinutesAgo.getDate())} ` +
+      `${pad(fiveMinutesAgo.getHours())}:${pad(fiveMinutesAgo.getMinutes())}:00`;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const queries: any[] = [
+      {
+        request_id: 'today',
+        bucket: 'DAY',
+        since_datetime: startOfToday,
+        operation: 'SUM',
+        units: this.config.units ?? Types.VolumeUnits.GALLONS,
+      },
+      {
+        request_id: 'month',
+        bucket: 'MON',
+        since_datetime: startOfCurrMonth,
+        operation: 'SUM',
+        units: this.config.units ?? Types.VolumeUnits.GALLONS,
+      },
+      {
+        request_id: 'lastMonth',
+        bucket: 'MON',
+        since_datetime: startOfLastMonth,
+        until_datetime: startOfCurrMonth,
+        operation: 'SUM',
+        units: this.config.units ?? Types.VolumeUnits.GALLONS,
+      },
+    ];
+
+    // Add flow rate query if enabled
+    if (includeFlowRate) {
+      queries.push({
+        request_id: 'flowRate',
+        bucket: 'MIN',
+        since_datetime: flowRateSince,
+        operation: 'SUM',
+        units: this.config.units ?? Types.VolumeUnits.GALLONS,
+      });
+    }
+
+    const data = { queries };
 
     const usageData = await this.do<Types.UsageData>(this.getUsageData.name, data, false, false, URL_WATER_USAGE, this.auth?.userId, deviceId);
 
@@ -370,9 +387,12 @@ export class FlumeAPI {
       let deviceData: Types.DeviceData | null = null;
       let usageData: Types.UsageData | null = null;
 
+      // Determine if we need flow rate data (minute-level query)
+      const needsFlowRate = this.config.flowRateSensor === true;
+
       if (Date.now() - this.lastFullRefresh > FULL_REFRESH_INTERVAL) {
         deviceData = await this.getDeviceData(id);
-        usageData = await this.getUsageData(id);
+        usageData = await this.getUsageData(id, needsFlowRate);
         this.lastFullRefresh = Date.now();
       }
 
@@ -385,9 +405,9 @@ export class FlumeAPI {
         leakData = await this.getLeakData(id);
       }
 
-      // If flow motion sensor is enabled, fetch usage data each sync to compute flow state
-      if (this.config.flowMotionSensor && !usageData) {
-        usageData = await this.getUsageData(id);
+      // If flow motion sensor or flow rate sensor is enabled, fetch usage data each sync
+      if ((this.config.flowMotionSensor || this.config.flowRateSensor) && !usageData) {
+        usageData = await this.getUsageData(id, needsFlowRate);
       }
 
       device.update(leakData, unreadNotifications, deviceData, usageData);

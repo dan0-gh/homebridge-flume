@@ -25,16 +25,19 @@ export class FlumeAccessory {
 
   private readonly leakService: Service;
   private readonly motionService?: Service;
+  private readonly flowRateService?: Service;
 
   private isLeakDetected: boolean = false;
   private isBatteryLow: boolean = false;
   private isDisconnected: boolean = true;
   private isFlowing: boolean = false;
+  private currentFlowRate: number = 0;
 
   private readonly charLeakDetected: typeof Characteristic.LeakDetected;
   private readonly charStatusLowBattery: typeof Characteristic.StatusLowBattery;
   private readonly charStatusFault: typeof Characteristic.StatusFault;
   private readonly charMotionDetected: typeof Characteristic.MotionDetected;
+  private readonly charCurrentAmbientLightLevel: typeof Characteristic.CurrentAmbientLightLevel;
 
   private readonly todayUsageChar: Characteristic;
   private readonly monthUsageChar: Characteristic;
@@ -65,6 +68,7 @@ export class FlumeAccessory {
     this.charStatusLowBattery = this.Characteristic.StatusLowBattery;
     this.charStatusFault = this.Characteristic.StatusFault;
     this.charMotionDetected = this.Characteristic.MotionDetected;
+    this.charCurrentAmbientLightLevel = this.Characteristic.CurrentAmbientLightLevel;
 
     this.leakService = this.accessory.getService(this.HAP.Service.LeakSensor)
       || this.accessory.addService(this.HAP.Service.LeakSensor);
@@ -75,11 +79,21 @@ export class FlumeAccessory {
         || this.accessory.addService(this.HAP.Service.MotionSensor);
     }
 
+    // Add optional LightSensor service for flow rate if configured
+    // This (ab)uses the light sensor's lux value to show flow rate in Apple Home
+    if (this.platform.config.flowRateSensor) {
+      this.flowRateService = this.accessory.getService(this.HAP.Service.LightSensor)
+        || this.accessory.addService(this.HAP.Service.LightSensor, strings.customChar.flowRate);
+    }
+
     this.isLeakDetected = this.leakService.getCharacteristic(this.charLeakDetected).value === this.charLeakDetected.LEAK_DETECTED;
     this.isBatteryLow = this.leakService.getCharacteristic(this.charStatusLowBattery).value === this.charStatusLowBattery.BATTERY_LEVEL_LOW;
     this.isDisconnected = this.leakService.getCharacteristic(this.charStatusFault).value === this.charStatusFault.GENERAL_FAULT;
     if (this.motionService) {
       this.isFlowing = this.motionService.getCharacteristic(this.charMotionDetected).value === true;
+    }
+    if (this.flowRateService) {
+      this.currentFlowRate = this.flowRateService.getCharacteristic(this.charCurrentAmbientLightLevel).value as number || 0;
     }
 
     this.clearCustomCharacteristics();
@@ -127,6 +141,16 @@ export class FlumeAccessory {
       this.isFlowing = this.device.isFlowing;
       this.motionService.updateCharacteristic(this.charMotionDetected, this.isFlowing);
       this.logState(this.isFlowing ? LogLevel.INFO : LogLevel.INFO, this.isFlowing ? strings.status.flowActive : strings.status.flowInactive);
+    }
+
+    // Update flow rate light sensor
+    // HomeKit LightSensor requires a minimum value of 0.0001 lux
+    if (this.flowRateService && this.device.currentFlowRate !== this.currentFlowRate) {
+      this.currentFlowRate = this.device.currentFlowRate;
+      // Use 0.0001 as minimum when flow rate is 0 (HomeKit requirement)
+      const luxValue = this.currentFlowRate > 0 ? this.currentFlowRate : 0.0001;
+      this.flowRateService.updateCharacteristic(this.charCurrentAmbientLightLevel, luxValue);
+      this.logState(LogLevel.INFO, `${strings.status.flowRate}: ${this.currentFlowRate.toFixed(2)} ${this.stringForUnits()}/min`);
     }
 
     this.todayUsageChar.updateValue(this.device.usageToday);
